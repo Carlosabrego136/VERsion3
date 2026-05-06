@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GuestData, TableData } from '../types';
 import { generateId, addGuest, getGuests, deleteGuest, getTables, saveTable } from '../store';
 
@@ -14,20 +14,26 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const [manualSurname, setManualSurname] = useState('');
   const [manualTable, setManualTable] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const initialLoadDone = useRef(false);
+  const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
-    const [g, t] = await Promise.all([getGuests(eventId), getTables(eventId)]);
-    setGuests(g);
-    setTables(t);
-  };
-
-  useEffect(() => {
-    if (!initialLoadDone.current) {
-      initialLoadDone.current = true;
-      loadData();
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Cargar mesas primero, luego invitados
+      const tablesData = await getTables(eventId);
+      setTables(tablesData);
+      const guestsData = await getGuests(eventId);
+      setGuests(guestsData);
+    } catch (err) {
+      console.error('Error cargando datos:', err);
     }
+    setLoading(false);
   }, [eventId]);
+
+  // Cargar datos cada vez que el componente se monta o eventId cambia
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAddManual = async () => {
     const name = manualName.trim();
@@ -51,7 +57,7 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
           eventId,
           label: tableLabel,
           shape: 'round',
-          position: { x: 100 + (tables.length % 10) * 100, y: 100 + Math.floor(tables.length / 10) * 100 },
+          position: { x: 100 + (tables.length % 10) * 120, y: 100 + Math.floor(tables.length / 10) * 120 },
           size: { width: 80, height: 80 },
           videoUrl: '',
           videoType: '',
@@ -100,8 +106,17 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
   const getTableName = (tableId: string) => {
     if (!tableId) return 'Sin mesa';
-    return tables.find(t => t.id === tableId)?.label ?? 'Sin mesa';
+    const table = tables.find(t => t.id === tableId);
+    return table ? table.label : 'Sin mesa';
   };
+
+  if (loading) {
+    return (
+      <div className= "flex items-center justify-center py-12" >
+      <div className="text-gray-500" > Cargando...</div>
+        < /div>
+    );
+  }
 
   return (
     <div className= "space-y-4" >
@@ -180,9 +195,9 @@ autoComplete = "off"
     <div key= { g.id } className = "flex items-center justify-between py-2.5 px-1 gap-2" >
     <div className="min-w-0" >
   <span className="text-sm font-medium text-gray-800" > { g.name } { g.surname } < /span>
-  < span className = "ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium" >
-  Mesa: { getTableName(g.tableId)
-}
+  < span className = {`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${g.tableId ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+    }`}>
+      Mesa: { getTableName(g.tableId) }
 </span>
   < /div>
   < button
