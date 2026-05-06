@@ -43,27 +43,36 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       } else if (file.name.endsWith('.pdf')) {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          const lineMap: Record<number, string[]> = {};
-          content.items.forEach((item: unknown) => {
+
+          // Group text items by Y coordinate to reconstruct each row
+          const lineMap: Map<number, { x: number; str: string }[]> = new Map();
+          for (const item of content.items) {
             const it = item as { str: string; transform: number[] };
+            if (!it.str.trim()) continue;
             const y = Math.round(it.transform[5]);
-            if (!lineMap[y]) lineMap[y] = [];
-            lineMap[y].push(it.str);
-          });
-          const sortedYs = Object.keys(lineMap).map(Number).sort((a, b) => b - a);
+            if (!lineMap.has(y)) lineMap.set(y, []);
+            lineMap.get(y)!.push({ x: it.transform[4], str: it.str });
+          }
+
+          // Sort rows top→bottom, items left→right within each row
+          const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
           for (const y of sortedYs) {
-            text += lineMap[y].join(' ') + '\n';
+            const items = lineMap.get(y)!.sort((a, b) => a.x - b.x);
+            text += items.map(i => i.str).join(',') + '\n';
           }
         }
       } else {
         text = await file.text();
       }
 
-      const parsed = await parseGuestText(text, eventId, tables);
+      const currentTables = await getTables(eventId);
+      const parsed = await parseGuestText(text, eventId, currentTables);
       const existing = await getGuests(eventId);
       await saveGuests([...existing, ...parsed], eventId);
       refresh();
@@ -84,11 +93,16 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     existingTables.forEach(t => tableMap.set(t.label.toLowerCase().trim(), t.id));
 
     for (const line of lines) {
+      // Skip header rows
+      if (/^nombre[,\t;|]/i.test(line.trim())) continue;
+
       const parts = line.split(/[,\t;|]/).map(s => s.trim()).filter(Boolean);
       if (parts.length >= 2) {
         const name = parts[0] || '';
         const surname = parts[1] || '';
         const tableLabel = parts[2] || '';
+
+        if (name.toLowerCase() === 'nombre') continue;
 
         let tableId = '';
         if (tableLabel) {
@@ -126,18 +140,13 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
   const addManualGuest = async () => {
     if (!manualName.trim()) return;
-    let tableId = manualTable;
-    if (!tableId) {
-      const t = tables.find(t => t.id === manualTable);
-      tableId = t?.id || '';
-    }
 
     const guest: GuestData = {
       id: generateId(),
       eventId,
       name: manualName.trim(),
       surname: manualSurname.trim(),
-      tableId,
+      tableId: manualTable || '',
     };
     const existing = await getGuests(eventId);
     await saveGuests([...existing, guest], eventId);
@@ -196,21 +205,40 @@ className = "px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg te
 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
   <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Agregar Manualmente < /h3>
     < div className = "flex flex-wrap gap-2 items-end" >
-      <input value={ manualName } onChange = { e => setManualName(e.target.value) } placeholder = "Nombre" className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-        <input value={ manualSurname } onChange = { e => setManualSurname(e.target.value) } placeholder = "Apellido" className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-          <select value={ manualTable } onChange = { e => setManualTable(e.target.value) } className = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" >
-            <option value="" > Sin mesa < /option>
+      <input
+            value={ manualName }
+onChange = { e => setManualName(e.target.value) }
+onKeyDown = { e => e.key === 'Enter' && addManualGuest() }
+placeholder = "Nombre"
+className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+  />
+  <input
+            value={ manualSurname }
+onChange = { e => setManualSurname(e.target.value) }
+onKeyDown = { e => e.key === 'Enter' && addManualGuest() }
+placeholder = "Apellido"
+className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+  />
+  <select
+            value={ manualTable }
+onChange = { e => setManualTable(e.target.value) }
+className = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+  >
+  <option value="" > Sin mesa < /option>
 {
   tables.map(t => (
     <option key= { t.id } value = { t.id } > { t.label } < /option>
   ))
 }
 </select>
-  < button onClick = { addManualGuest } className = "px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors" >
-    Agregar
-    < /button>
-    < /div>
-    < /div>
+  < button
+onClick = { addManualGuest }
+className = "px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors"
+  >
+  Agregar
+  < /button>
+  < /div>
+  < /div>
 
 {/* Guest list */ }
 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >

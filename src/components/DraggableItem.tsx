@@ -12,7 +12,7 @@ interface DraggableItemProps {
 
 export default function DraggableItem({ children, x, y, onMove, containerRef, className = '', style }: DraggableItemProps) {
   const [dragging, setDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
   const itemRef = useRef<HTMLDivElement>(null);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -20,7 +20,7 @@ export default function DraggableItem({ children, x, y, onMove, containerRef, cl
     e.stopPropagation();
     const rect = itemRef.current?.getBoundingClientRect();
     if (rect) {
-      setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
     setDragging(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -31,10 +31,10 @@ export default function DraggableItem({ children, x, y, onMove, containerRef, cl
     const container = containerRef?.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const newX = e.clientX - rect.left - dragOffset.x;
-    const newY = e.clientY - rect.top - dragOffset.y;
+    const newX = e.clientX - rect.left - dragOffsetRef.current.x;
+    const newY = e.clientY - rect.top - dragOffsetRef.current.y;
     onMove(Math.max(0, newX), Math.max(0, newY));
-  }, [dragging, dragOffset, containerRef, onMove]);
+  }, [dragging, containerRef, onMove]);
 
   const handlePointerUp = useCallback(() => {
     setDragging(false);
@@ -42,14 +42,15 @@ export default function DraggableItem({ children, x, y, onMove, containerRef, cl
 
   return (
     <div
-      ref={itemRef}
-      className={`absolute cursor-grab select-none ${dragging ? 'cursor-grabbing z-50' : ''} ${className}`}
-      style={{ left: x, top: y, ...style }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-    >
-      {children}
-    </div>
+      ref= { itemRef }
+  className = {`absolute select-none ${dragging ? 'cursor-grabbing z-50' : 'cursor-grab'} ${className}`
+}
+style = {{ left: x, top: y, touchAction: 'none', willChange: 'left, top', ...style }}
+onPointerDown = { handlePointerDown }
+onPointerMove = { handlePointerMove }
+onPointerUp = { handlePointerUp }
+  >
+  { children }
+  < /div>
   );
 }
