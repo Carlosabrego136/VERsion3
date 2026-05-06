@@ -36,16 +36,12 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      // Skip header
       if (/^nombre[,;\t|]/i.test(trimmed)) continue;
-
       const parts = trimmed.split(/[,;\t|]/).map(s => s.trim()).filter(Boolean);
       if (parts.length < 2) continue;
-
       const name = parts[0];
       const surname = parts[1];
       const tableLabel = parts[2] || '';
-
       if (name.toLowerCase() === 'nombre') continue;
 
       let tableId = '';
@@ -69,7 +65,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
           tableId = newTable.id;
         }
       }
-
       result.push({ id: generateId(), eventId, name, surname, tableId });
     }
     return result;
@@ -78,7 +73,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setImporting(true);
     setLastImportCount(null);
 
@@ -86,30 +80,23 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       let text = '';
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
-        // Dynamically import pdfjs
         const pdfjs = await import('pdfjs-dist');
         pdfjs.GlobalWorkerOptions.workerSrc =
           `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-
         const buffer = await file.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data: buffer }).promise;
 
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const content = await page.getTextContent();
-
-          // Group by Y to reconstruct rows
           const rowMap = new Map<number, { x: number; str: string }[]>();
           for (const item of content.items) {
             const it = item as { str: string; transform: number[] };
             if (!it.str.trim()) continue;
-            // Round Y to 3px buckets to group items on same visual line
             const y = Math.round(it.transform[5] / 3) * 3;
             if (!rowMap.has(y)) rowMap.set(y, []);
             rowMap.get(y)!.push({ x: it.transform[4], str: it.str.trim() });
           }
-
-          // top→bottom (PDF Y is bottom-up so sort descending)
           const ys = Array.from(rowMap.keys()).sort((a, b) => b - a);
           for (const y of ys) {
             const cells = rowMap.get(y)!.sort((a, b) => a.x - b.x);
@@ -122,19 +109,16 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
         const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
         text = result.value;
       } else {
-        // CSV / TXT
         text = await file.text();
       }
 
       const currentTables = await getTables(eventId);
       const parsed = await parseLines(text, currentTables);
-
       let added = 0;
       for (const g of parsed) {
         await addGuest(g);
         added++;
       }
-
       setLastImportCount(added);
       await refresh();
     } catch (err) {
@@ -142,7 +126,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       alert('Error al importar. Verifica que el archivo tenga el formato: Nombre, Apellido, Mesa');
     } finally {
       setImporting(false);
-      // Reset input so same file can be re-uploaded
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -150,7 +133,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const handleAddManual = async () => {
     const name = manualName.trim();
     if (!name) return;
-
     const guest: GuestData = {
       id: generateId(),
       eventId,
@@ -158,7 +140,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       surname: manualSurname.trim(),
       tableId: manualTable || '',
     };
-
     try {
       await addGuest(guest);
       setManualName('');
@@ -197,31 +178,24 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   return (
     <div className= "space-y-4" >
 
-    {/* ── Import ── */ }
-    < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
       <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Importar Invitados < /h3>
         < p className = "text-xs text-gray-500" >
           Archivo CSV, Word o PDF con columnas: <strong>Nombre, Apellido, Mesa < /strong>
             < /p>
-
-  {/* File button — native input, no JS open() call (works on mobile) */ }
-  <div className="flex flex-wrap gap-2" >
-    <label
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-lg text-sm font-semibold transition-colors cursor-pointer select-none"
-  style = {{ display: 'inline-block' }
+            < div className = "flex flex-wrap gap-2" >
+              <label className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors cursor-pointer select-none" >
+                { importing? 'Importando...': 'Cargar Archivo' }
+                < input
+  ref = { fileInputRef }
+  type = "file"
+  accept = ".csv,.txt,.doc,.docx,.pdf"
+  onChange = { handleFileChange }
+  disabled = { importing }
+  style = {{ display: 'none' }
 }
-          >
-  { importing? 'Importando…': 'Cargar Archivo' }
-  < input
-ref = { fileInputRef }
-type = "file"
-accept = ".csv,.txt,.doc,.docx,.pdf"
-onChange = { handleFileChange }
-disabled = { importing }
-style = {{ display: 'none' }}
 />
   < /label>
-
   < button
 type = "button"
 onClick = { downloadTemplate }
@@ -230,20 +204,19 @@ className = "px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg te
   Descargar Plantilla
     < /button>
     < /div>
-
 {
   lastImportCount !== null && (
-    <p className="text-sm font-medium text-green-600" >✅ { lastImportCount } invitados importados < /p>
+    <p className="text-sm font-medium text-green-600" >
+      { lastImportCount } invitados importados correctamente
+        < /p>
         )
 }
 </div>
 
-{/* ── Manual ── */ }
-<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
-  <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Agregar Manualmente < /h3>
-
-    < div className = "flex flex-wrap gap-2" >
-      <input
+  < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
+    <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Agregar Manualmente < /h3>
+      < div className = "flex flex-wrap gap-2" >
+        <input
             type="text"
 value = { manualName }
 onChange = { e => setManualName(e.target.value) }
@@ -266,34 +239,34 @@ className = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-n
   >
   <option value="" > Sin mesa < /option>
 {
-  tables.map(t => <option key={ t.id } value = { t.id } > { t.label } < /option>)}
-    < /select>
-    < button
-            type = "button"
-            onClick = { handleAddManual }
-            className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-lg text-sm font-semibold transition-colors"
-    >
-    Agregar
-    < /button>
-    < /div>
-    < /div>
-
-      {/* ── List ── */ }
-    < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
-    <div className="flex items-center justify-between gap-2" >
-  <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" >
-  Lista({ guests.length })
-  < /h3>
-  < input
-            type = "text"
-            value = { searchTerm }
-            onChange = { e => setSearchTerm(e.target.value)
+  tables.map(t => (
+    <option key= { t.id } value = { t.id } > { t.label } < /option>
+  ))
 }
-placeholder = "Buscar…"
+</select>
+  < button
+type = "button"
+onClick = { handleAddManual }
+className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors"
+  >
+  Agregar
+  < /button>
+  < /div>
+  < /div>
+
+  < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
+    <div className="flex items-center justify-between gap-2" >
+      <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" >
+        Lista({ guests.length })
+        < /h3>
+        < input
+type = "text"
+value = { searchTerm }
+onChange = { e => setSearchTerm(e.target.value) }
+placeholder = "Buscar..."
 className = "px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 w-36"
   />
   </div>
-
   < div className = "max-h-96 overflow-y-auto divide-y divide-gray-100" >
     {
       filtered.length === 0 && (
@@ -303,8 +276,8 @@ className = "px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline
   filtered.map(g => (
     <div key= { g.id } className = "flex items-center justify-between py-2.5 px-1 gap-2" >
     <div className="min-w-0" >
-  <span className="text-sm font-medium text-gray-800 truncate" > { g.name } { g.surname } < /span>
-  < span className = "ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium whitespace-nowrap" >
+  <span className="text-sm font-medium text-gray-800" > { g.name } { g.surname } < /span>
+  < span className = "ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium" >
   { getTableName(g.tableId)
 }
 </span>
@@ -313,16 +286,18 @@ className = "px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline
 type = "button"
 onClick = {() => handleDelete(g.id)}
 className = "shrink-0 text-red-400 hover:text-red-600 transition-colors p-1"
-aria - label="Eliminar"
   >
   <svg xmlns="http://www.w3.org/2000/svg" className = "w-4 h-4" viewBox = "0 0 24 24" fill = "none" stroke = "currentColor" strokeWidth = "2" strokeLinecap = "round" strokeLinejoin = "round" >
-    <path d="M3 6h18" /> <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /> <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      </svg>
-      < /button>
-      < /div>
+    <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          </svg>
+          < /button>
+          < /div>
           ))}
 </div>
   < /div>
+
   < /div>
   );
 }

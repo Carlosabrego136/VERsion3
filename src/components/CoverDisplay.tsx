@@ -5,7 +5,7 @@ import { CoverElement, AnimationType } from '../types';
 import { getEvent, getCoverElements } from '../store';
 import { EventData } from '../types';
 
-// Must match CoverEditor canvas reference size
+// Must match CoverEditor canvas reference
 const CW = 360;
 const CH = 640;
 
@@ -18,7 +18,8 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
   const [event, setEvent] = useState<EventData | null>(null);
   const [elements, setElements] = useState<CoverElement[]>([]);
   const [showControls, setShowControls] = useState(true);
-  const [, forceUpdate] = useState(0);
+  const [vw, setVw] = useState(window.innerWidth);
+  const [vh, setVh] = useState(window.innerHeight);
 
   useEffect(() => {
     const load = async () => {
@@ -29,18 +30,17 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
     load();
   }, [eventId]);
 
-  // Hide controls after 3s of no interaction
   useEffect(() => {
-    const t = setTimeout(() => setShowControls(false), 3000);
-    return () => clearTimeout(t);
-  }, [showControls]);
-
-  // Recalculate on resize
-  useEffect(() => {
-    const onResize = () => forceUpdate(n => n + 1);
+    const onResize = () => { setVw(window.innerWidth); setVh(window.innerHeight); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    if (!showControls) return;
+    const t = setTimeout(() => setShowControls(false), 3500);
+    return () => clearTimeout(t);
+  }, [showControls]);
 
   if (!event) {
     return (
@@ -53,37 +53,34 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
 
 const animation = (event.coverConfig?.animation as AnimationType) || 'none';
 const guestPageUrl = `${window.location.origin}${window.location.pathname}#guest/${eventId}`;
-
 const isRotated90 = Math.abs(rotation % 180) === 90;
 
-// Screen dimensions
-const screenW = window.innerWidth;
-const screenH = window.innerHeight;
-
-// The canvas (CW x CH = 360x640) needs to fill the screen.
-// When NOT rotated: fit vertically (portrait)
-// When rotated 90/270: the canvas is sideways, so we need it to fill the landscape screen
-// We scale the canvas so that when rotated it covers the full viewport.
+// Vertical (0° / 180°): fit height so the 9:16 canvas shows fully centered.
+// Black bars appear on the sides — that's correct.
+// Horizontal (90° / 270°): scale so the canvas fills the full screen width AND height.
 let scale: number;
 if (isRotated90) {
-  // After rotating 90°, canvas width (CW) becomes screen height, canvas height (CH) becomes screen width
-  // Scale so: CW * scale >= screenH AND CH * scale >= screenW
-  const scaleByH = screenH / CW;
-  const scaleByW = screenW / CH;
-  scale = Math.max(scaleByH, scaleByW);
+  // After rotating 90°, the canvas is landscape.
+  // CW becomes the height axis, CH becomes the width axis.
+  // Fill both vw and vh completely.
+  const scaleW = vw / CH;
+  const scaleH = vh / CW;
+  scale = Math.max(scaleW, scaleH);
 } else {
-  // Normal portrait: fit CW to screenW, CH to screenH, use larger scale to cover
-  const scaleByW = screenW / CW;
-  const scaleByH = screenH / CH;
-  scale = Math.max(scaleByW, scaleByH);
+  // Portrait: fit inside the screen without cropping
+  const scaleW = vw / CW;
+  const scaleH = vh / CH;
+  scale = Math.min(scaleW, scaleH); // min = letterbox (black bars on sides)
 }
+
+const normalizedDeg = ((rotation % 360) + 360) % 360;
 
 return (
   <div
       style= {{ position: 'fixed', inset: 0, background: '#000', overflow: 'hidden' }}
 onClick = {() => setShowControls(p => !p)}
     >
-  {/* Canvas — centered, scaled to fill screen, then rotated */ }
+  {/* Canvas centered, scaled, then rotated */ }
   < div
 style = {{
   position: 'absolute',
@@ -91,21 +88,20 @@ style = {{
       left: '50%',
         width: CW,
           height: CH,
-            marginLeft: -CW / 2,
-              marginTop: -CH / 2,
+            marginLeft: -(CW / 2),
+              marginTop: -(CH / 2),
                 transform: `scale(${scale}) rotate(${rotation}deg)`,
                   transformOrigin: 'center center',
                     transition: 'transform 0.5s ease',
+                      overflow: 'hidden',
         }}
       >
-  {/* Background */ }
 {
   event.backgroundType === 'image' && event.backgroundUrl && (
     <img
             src={ event.backgroundUrl }
-  alt = ""
-  style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }
-}
+alt = ""
+style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
 />
         )}
 {
@@ -126,21 +122,20 @@ style = {{
 <div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))', pointerEvents: 'none' } } />
   < AnimationCanvas animation = { animation } accentColor = { event.accentColor } />
 
-    {/* Elements at exact saved positions */ }
-{
-  elements.map(el => (
-    <div key= { el.id } style = {{ position: 'absolute', left: el.position.x, top: el.position.y, zIndex: el.zIndex }}>
-    {
-      el.elementType === 'text' && (
-        <div style={
-          {
-            fontSize: `${el.style.fontSize || 24}px`,
-              color: String(el.style.color || '#fff'),
-                fontFamily: String(el.style.fontFamily || 'serif'),
-                  fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-                    fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                      textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                        whiteSpace: 'nowrap',
+  {
+    elements.map(el => (
+      <div key= { el.id } style = {{ position: 'absolute', left: el.position.x, top: el.position.y, zIndex: el.zIndex }} >
+  {
+    el.elementType === 'text' && (
+      <div style={
+        {
+          fontSize: `${el.style.fontSize || 24}px`,
+            color: String(el.style.color || '#fff'),
+              fontFamily: String(el.style.fontFamily || 'serif'),
+                fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+                  fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+                    textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                      whiteSpace: 'nowrap',
               }
 }>
   { el.content }
@@ -154,7 +149,6 @@ style = {{
 </div>
         ))}
 
-{/* QR at exact saved position */ }
 <div style={ { position: 'absolute', left: event.qrPosition.x, top: event.qrPosition.y, zIndex: 50 } }>
   <div style={ { background: 'white', padding: 10, borderRadius: 12, width: event.qrSize, height: event.qrSize, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } }>
     <QRCodeSVG value={ guestPageUrl } size = { event.qrSize - 20 } />
@@ -172,45 +166,54 @@ style = {{
           transform: 'translateX(-50%)',
             display: 'flex',
               alignItems: 'center',
-                gap: 10,
+                gap: 8,
                   background: 'rgba(0,0,0,0.75)',
                     backdropFilter: 'blur(10px)',
                       borderRadius: 24,
-                        padding: '10px 18px',
+                        padding: '10px 16px',
                           transition: 'opacity 0.4s',
                             opacity: showControls ? 1 : 0,
                               pointerEvents: showControls ? 'auto' : 'none',
                                 zIndex: 999,
+                                  whiteSpace: 'nowrap',
         }
 }
 onClick = { e => e.stopPropagation() }
   >
   <button
           onClick={ () => setRotation(r => r - 90) }
-style = {{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', color: 'white', border: 'none', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >↺</button>
-  < span style = {{ color: 'white', fontSize: 13, minWidth: 44, textAlign: 'center' }}> {((rotation % 360) + 360) % 360}°</span>
-    < button
+style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
+        >
+          ↺
+</button>
+  < span style = {{ color: 'white', fontSize: 13, minWidth: 36, textAlign: 'center' }}>
+    { normalizedDeg }°
+</span>
+  < button
 onClick = {() => setRotation(r => r + 90)}
-style = {{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', color: 'white', border: 'none', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >↻</button>
-  < div style = {{ width: 1, height: 24, background: 'rgba(255,255,255,0.2)' }} />
+style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
+        >
+          ↻
+</button>
+  < div style = {{ width: 1, height: 22, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
 {
   [0, 90, 180, 270].map(deg => (
     <button
             key= { deg }
             onClick = {() => setRotation(deg)}
 style = {{
-  padding: '4px 10px',
+  padding: '4px 9px',
     borderRadius: 10,
-      background: ((rotation % 360) + 360) % 360 === deg ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+      background: normalizedDeg === deg ? '#f59e0b' : 'rgba(255,255,255,0.18)',
         color: 'white',
           border: 'none',
             fontSize: 12,
               cursor: 'pointer',
                 fontWeight: 600,
             }}
-          > { deg }°</button>
+          >
+  { deg }°
+</button>
         ))}
 </div>
   < /div>
