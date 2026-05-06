@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import DraggableItem from './DraggableItem';
 import AnimationCanvas from './Animations';
 import { CoverElement, AnimationType, ANIMATION_OPTIONS } from '../types';
 import { generateId, saveCoverElement, deleteCoverElement, getCoverElements } from '../store';
@@ -21,9 +20,9 @@ interface CoverEditorProps {
   guestPageUrl: string;
 }
 
-// The "canvas" size we design on — 9:16 vertical reference
-const CANVAS_W = 360;
-const CANVAS_H = 640;
+// Fixed canvas reference size — all positions are in these coordinates
+const CW = 360;
+const CH = 640;
 
 export default function CoverEditor({
   eventId,
@@ -44,18 +43,68 @@ export default function CoverEditor({
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [newText, setNewText] = useState('');
   const [newTextStyle, setNewTextStyle] = useState({
-    fontSize: 24,
+    fontSize: 28,
     color: '#ffffff',
     fontFamily: 'serif',
     bold: false,
     italic: false,
   });
   const [previewRotation, setPreviewRotation] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Drag state
+  const draggingRef = useRef<{ id: string | 'qr'; offsetX: number; offsetY: number } | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const editorScaleRef = useRef(1);
 
   useEffect(() => {
     getCoverElements(eventId).then(els => setElements(els));
   }, [eventId]);
+
+  // Calculate the scale of the editor div (it's CSS-scaled from CW x CH)
+  const getEditorScale = useCallback(() => {
+    if (!editorRef.current) return 1;
+    return editorRef.current.getBoundingClientRect().width / CW;
+  }, []);
+
+  const onPointerDownElement = useCallback((e: React.PointerEvent, id: string | 'qr') => {
+    e.preventDefault();
+    e.stopPropagation();
+    const scale = getEditorScale();
+    editorScaleRef.current = scale;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    draggingRef.current = {
+      id,
+      offsetX: (e.clientX - rect.left) / scale,
+      offsetY: (e.clientY - rect.top) / scale,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (id !== 'qr') setSelectedElement(id);
+  }, [getEditorScale]);
+
+  const onPointerMoveEditor = useCallback((e: React.PointerEvent) => {
+    if (!draggingRef.current || !editorRef.current) return;
+    e.preventDefault();
+    const scale = editorScaleRef.current;
+    const rect = editorRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(CW - 10, (e.clientX - rect.left) / scale - draggingRef.current.offsetX));
+    const y = Math.max(0, Math.min(CH - 10, (e.clientY - rect.top) / scale - draggingRef.current.offsetY));
+    const { id } = draggingRef.current;
+
+    if (id === 'qr') {
+      onQrPositionChange({ x, y });
+    } else {
+      setElements(prev => {
+        const updated = prev.map(el => el.id === id ? { ...el, position: { x, y } } : el);
+        const el = updated.find(e => e.id === id);
+        if (el) saveCoverElement(el);
+        return updated;
+      });
+    }
+  }, [onQrPositionChange]);
+
+  const onPointerUpEditor = useCallback(() => {
+    draggingRef.current = null;
+  }, []);
 
   const addTextElement = async () => {
     if (!newText.trim()) return;
@@ -64,7 +113,7 @@ export default function CoverEditor({
       eventId,
       elementType: 'text',
       content: newText,
-      position: { x: 80, y: 100 },
+      position: { x: 30, y: 100 },
       size: { width: 300, height: 50 },
       style: {
         fontSize: newTextStyle.fontSize,
@@ -95,8 +144,8 @@ export default function CoverEditor({
           eventId,
           elementType: 'image',
           content: reader.result as string,
-          position: { x: 80, y: 100 },
-          size: { width: 200, height: 200 },
+          position: { x: 50, y: 150 },
+          size: { width: 150, height: 150 },
           style: {},
           animation: '',
           zIndex: elements.length + 1,
@@ -109,19 +158,10 @@ export default function CoverEditor({
     input.click();
   };
 
-  const handleElementMove = (id: string) => (x: number, y: number) => {
-    setElements(prev => {
-      const updated = prev.map(el => el.id === id ? { ...el, position: { x, y } } : el);
-      const el = updated.find(e => e.id === id);
-      if (el) saveCoverElement(el);
-      return updated;
-    });
-  };
-
   const removeElement = async (id: string) => {
     await deleteCoverElement(id);
     setElements(prev => prev.filter(el => el.id !== id));
-    if (selectedElement === id) setSelectedElement(null);
+    setSelectedElement(null);
   };
 
   const handleBackgroundUpload = () => {
@@ -142,146 +182,123 @@ export default function CoverEditor({
   };
 
   const selected = elements.find(el => el.id === selectedElement);
+  const isRotated90 = Math.abs(previewRotation % 180) === 90;
 
-  // The inner "canvas" content — renders at CANVAS_W x CANVAS_H and is scaled via CSS transform
-  // scale: how much to shrink the canvas to fit inside the preview container
-  // The preview always shows the full 9:16 content, just rotated as a whole
-  const CoverCanvas = ({
-    draggable = false,
-    scale = 1,
-  }: {
-    draggable?: boolean;
-    scale?: number;
-  }) => (
+  // Preview scale: fit CW x CH canvas into a fixed preview area
+  // Preview box is always CW*ps wide, CH*ps tall (before rotation)
+  const ps = 0.38; // preview scale
+  const scaledW = CW * ps;
+  const scaledH = CH * ps;
+  // After rotation, the bounding box flips
+  const previewBoxW = isRotated90 ? scaledH : scaledW;
+  const previewBoxH = isRotated90 ? scaledW : scaledH;
+
+  // Shared canvas content (renders at CW x CH, no scaling applied here)
+  const renderCanvas = (interactive: boolean, scale: number) => (
     <div
       style= {{
-      width: CANVAS_W,
-      height: CANVAS_H,
+      width: CW,
+      height: CH,
       position: 'relative',
       overflow: 'hidden',
       background: backgroundType === 'color' ? accentColor : '#111',
         transformOrigin: 'top left',
           transform: `scale(${scale})`,
             flexShrink: 0,
+              userSelect: 'none',
       }}
-ref = { draggable? containerRef: undefined }
-  >
+    >
   { backgroundType === 'image' && backgroundUrl && (
     <img
           src={ backgroundUrl }
-alt = "fondo"
-style = {{
-  position: 'absolute', inset: 0,
-    width: '100%', height: '100%',
-      objectFit: 'cover', objectPosition: 'center',
-        pointerEvents: 'none',
-          }}
+alt = ""
+draggable = { false}
+style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', pointerEvents: 'none' }}
 />
       )}
 {
   backgroundType === 'video' && backgroundUrl && (
-    <video
-          src={ backgroundUrl }
-          autoPlay loop muted playsInline
-  style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }
-}
-/>
+    <video src={ backgroundUrl } autoPlay loop muted playsInline style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }
+} />
       )}
 {
   !backgroundUrl && backgroundType !== 'color' && (
-    <div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a1a2e, #16213e)' } } />
+    <div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#1a1a2e,#16213e)', pointerEvents: 'none' } } />
       )
 }
-
-<div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15), transparent, rgba(0,0,0,0.25))', pointerEvents: 'none' } } />
+<div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))', pointerEvents: 'none' } } />
   < AnimationCanvas animation = { animation } accentColor = { accentColor } />
 
     {/* Elements */ }
 {
-  elements.map(el =>
-    draggable ? (
-      <DraggableItem
-            key= { el.id }
-            x = { el.position.x }
-            y = { el.position.y }
-            onMove = { handleElementMove(el.id)
-}
-containerRef = { containerRef }
-className = { selectedElement === el.id ? 'ring-2 ring-amber-400 rounded' : ''}
-          >
-  <ElementContent el={ el } onSelect = {() => setSelectedElement(el.id)} />
-    < /DraggableItem>
-        ) : (
-  <div
-            key= { el.id }
-style = {{ position: 'absolute', left: el.position.x, top: el.position.y, zIndex: el.zIndex, pointerEvents: 'none' }}
-          >
-  <ElementContent el={ el } />
-    < /div>
-        )
-      )}
-
-{/* QR */ }
-{
-  draggable ? (
-    <DraggableItem
-          x= { qrPosition.x }
-          y = { qrPosition.y }
-  onMove = {(x, y) => onQrPositionChange({ x, y })
-}
-containerRef = { containerRef }
+  elements.map(el => (
+    <div
+          key= { el.id }
+          style = {{
+    position: 'absolute',
+    left: el.position.x,
+    top: el.position.y,
+    zIndex: el.zIndex,
+    cursor: interactive ? 'grab' : 'default',
+    outline: interactive && selectedElement === el.id ? '2px solid #f59e0b' : 'none',
+    outlineOffset: 2,
+  }}
+onPointerDown = { interactive?(e) => onPointerDownElement(e, el.id) : undefined }
   >
-  <div style={ { background: 'white', padding: 8, borderRadius: 10, width: qrSize, height: qrSize } }>
-    <QRCodeSVG value={ guestPageUrl } size = { qrSize - 16} />
-      < /div>
-      < /DraggableItem>
-      ) : (
-  <div style= {{ position: 'absolute', left: qrPosition.x, top: qrPosition.y, pointerEvents: 'none' }}>
-    <div style={ { background: 'white', padding: 8, borderRadius: 10, width: qrSize, height: qrSize } }>
-      <QRCodeSVG value={ guestPageUrl } size = { Math.max(30, qrSize - 16) } />
-        </div>
-        < /div>
-      )}
-
-{/* Selection toolbar */ }
 {
-  draggable && selected && (
+  el.elementType === 'text' && (
     <div style={
       {
-        position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '6px 10px',
-            display: 'flex', gap: 8, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        }
-  }>
-    <button
-            onClick={ () => removeElement(selected.id) }
-  style = {{ padding: '4px 10px', background: '#ef4444', color: 'white', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }
+        fontSize: `${el.style.fontSize || 24}px`,
+          color: String(el.style.color || '#fff'),
+            fontFamily: String(el.style.fontFamily || 'serif'),
+              fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+                fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                    whiteSpace: 'nowrap',
+                      pointerEvents: 'none',
+            }
+}>
+  { el.content }
+  < /div>
+          )}
+{
+  el.elementType === 'image' && (
+    <img src={ el.content } alt = "" draggable = { false} style = {{ width: el.size.width, height: el.size.height, objectFit: 'contain', pointerEvents: 'none' }
+} />
+          )}
+</div>
+      ))}
+
+{/* QR */ }
+<div
+        style={ { position: 'absolute', left: qrPosition.x, top: qrPosition.y, cursor: interactive ? 'grab' : 'default', zIndex: 50 } }
+onPointerDown = { interactive?(e) => onPointerDownElement(e, 'qr'): undefined }
+  >
+  <div style={ { background: 'white', padding: 8, borderRadius: 10, width: qrSize, height: qrSize } }>
+    <QRCodeSVG value={ guestPageUrl } size = { Math.max(20, qrSize - 16) } />
+      </div>
+      < /div>
+
+{/* Selection toolbar — only in editor */ }
+{
+  interactive && selected && (
+    <div style={ { position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '5px 10px', display: 'flex', gap: 8, zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' } }>
+      <button
+            onPointerDown={ e => e.stopPropagation() }
+  onClick = {() => removeElement(selected.id)
 }
-          >
-  Eliminar
-  < /button>
+style = {{ padding: '3px 10px', background: '#ef4444', color: 'white', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
+          > Eliminar < /button>
   < button
+onPointerDown = { e => e.stopPropagation() }
 onClick = {() => setSelectedElement(null)}
-style = {{ padding: '4px 10px', background: '#e5e7eb', color: '#374151', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
-          >
-  Cerrar
-  < /button>
+style = {{ padding: '3px 10px', background: '#e5e7eb', color: '#374151', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
+          > Cerrar < /button>
   < /div>
       )}
 </div>
   );
-
-// Preview: renders the full canvas at a small scale, then rotates the whole thing
-// The outer wrapper clips to the rotated bounding box
-const isRotated90 = Math.abs(previewRotation % 180) === 90;
-
-// We need the preview container to show the correct bounding box after rotation
-// When rotated 90°: visible width = CANVAS_H * previewScale, visible height = CANVAS_W * previewScale
-const previewScale = 0.42; // scale factor so canvas fits in the panel
-const scaledW = CANVAS_W * previewScale;
-const scaledH = CANVAS_H * previewScale;
-const previewBoxW = isRotated90 ? scaledH : scaledW;
-const previewBoxH = isRotated90 ? scaledW : scaledH;
 
 return (
   <div className= "space-y-4" >
@@ -302,82 +319,86 @@ return (
   </label>
   < /div>
 
-  < div className = "flex flex-wrap gap-2 items-end" >
+  < div className = "flex flex-wrap gap-2 items-center" >
     <input
             value={ newText }
 onChange = { e => setNewText(e.target.value) }
-placeholder = "Texto para la portada..."
-className = "flex-1 min-w-[150px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
 onKeyDown = { e => e.key === 'Enter' && addTextElement() }
+placeholder = "Texto para la portada..."
+className = "flex-1 min-w-[140px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
   />
-  <input type="number" value = { newTextStyle.fontSize } onChange = { e => setNewTextStyle(p => ({ ...p, fontSize: +e.target.value }))} className = "w-16 px-2 py-2 border border-gray-200 rounded-lg text-sm" min = "8" max = "120" title = "Tamaño" />
-    <input type="color" value = { newTextStyle.color } onChange = { e => setNewTextStyle(p => ({ ...p, color: e.target.value }))} className = "w-8 h-8 rounded cursor-pointer border-0" title = "Color texto" />
+  <input type="number" value = { newTextStyle.fontSize } onChange = { e => setNewTextStyle(p => ({ ...p, fontSize: +e.target.value }))} className = "w-14 px-2 py-2 border border-gray-200 rounded-lg text-sm" min = "8" max = "120" />
+    <input type="color" value = { newTextStyle.color } onChange = { e => setNewTextStyle(p => ({ ...p, color: e.target.value }))} className = "w-8 h-8 rounded cursor-pointer border-0" />
       <select value={ newTextStyle.fontFamily } onChange = { e => setNewTextStyle(p => ({ ...p, fontFamily: e.target.value }))} className = "px-2 py-2 border border-gray-200 rounded-lg text-sm" >
         <option value="serif" > Serif < /option>
           < option value = "sans-serif" > Sans < /option>
             < option value = "cursive" > Cursiva < /option>
               < option value = "monospace" > Mono < /option>
                 < /select>
-                < button onClick = {() => setNewTextStyle(p => ({ ...p, bold: !p.bold }))} className = {`px-2 py-2 rounded-lg text-sm font-bold ${newTextStyle.bold ? 'bg-amber-400 text-white' : 'bg-gray-100 text-gray-700'}`}> B < /button>
-                  < button onClick = {() => setNewTextStyle(p => ({ ...p, italic: !p.italic }))} className = {`px-2 py-2 rounded-lg text-sm italic ${newTextStyle.italic ? 'bg-amber-400 text-white' : 'bg-gray-100 text-gray-700'}`}> I < /button>
+                < button onClick = {() => setNewTextStyle(p => ({ ...p, bold: !p.bold }))} className = {`px-2 py-2 rounded-lg text-sm font-bold border ${newTextStyle.bold ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}> B < /button>
+                  < button onClick = {() => setNewTextStyle(p => ({ ...p, italic: !p.italic }))} className = {`px-2 py-2 rounded-lg text-sm italic border ${newTextStyle.italic ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}> I < /button>
                     < button onClick = { addTextElement } className = "px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors" >
-                      Agregar texto
+                      + Texto
+                      < /button>
+                      < button onClick = { addImageElement } className = "px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors" >
+                        + Imagen
                         < /button>
                         < /div>
 
-                        < div className = "flex flex-wrap gap-2 items-center" >
-                          <button onClick={ addImageElement } className = "px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors" >
-                            + Cargar Imagen
-                              < /button>
-                              < label className = "flex items-center gap-2 text-sm text-gray-600" >
-                                Animacion:
-<select value={ animation } onChange = { e => onAnimationChange(e.target.value as AnimationType) } className = "px-3 py-2 border border-gray-200 rounded-lg text-sm" >
+                        < div className = "flex flex-wrap gap-4 items-center" >
+                          <label className="flex items-center gap-2 text-sm text-gray-600" >
+                            Animación:
+<select value={ animation } onChange = { e => onAnimationChange(e.target.value as AnimationType) } className = "px-2 py-1.5 border border-gray-200 rounded-lg text-sm" >
 {
   ANIMATION_OPTIONS.map(opt => <option key={ opt.value } value = { opt.value } > { opt.label } < /option>)}
     < /select>
     < /label>
-    < /div>
-
-    < div className = "flex items-center gap-2" >
-    <span className="text-sm text-gray-600" > Tamaño QR: </span>
-  < input type = "range" min = "80" max = "300" value = { qrSize } onChange = { e => onQrSizeChange(+ e.target.value)
+    < label className = "flex items-center gap-2 text-sm text-gray-600 flex-1" >
+    Tamaño QR:
+    <input type="range" min = "60" max = "250" value = { qrSize } onChange = { e => onQrSizeChange(+ e.target.value)
 } className = "flex-1 accent-amber-500" />
-  <span className="text-sm text-gray-500 w-12" > { qrSize }px < /span>
+  <span className="text-xs text-gray-400 w-10" > { qrSize }px < /span>
+    < /label>
     < /div>
     < /div>
 
-{/* Editor + Preview side by side */ }
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start" >
+{/* Editor + Preview */ }
+<div className="flex flex-col lg:flex-row gap-6 items-start" >
 
-  {/* Editor: fixed canvas size, scrollable if needed */ }
-  < div >
-  <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wide" > Editor — arrastra elementos < /p>
-    < div
+  {/* EDITOR — full size 360×640, draggable */ }
+  < div className = "flex-shrink-0" >
+    <p className="text-xs text-gray-500 mb-1.5 font-semibold uppercase tracking-wide" > Editor — arrastra los elementos < /p>
+      < div
+ref = { editorRef }
 style = {{
-  width: CANVAS_W,
-    height: CANVAS_H,
+  width: CW,
+    height: CH,
       position: 'relative',
-        borderRadius: 12,
+        borderRadius: 14,
           overflow: 'hidden',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-              border: '1px solid #e5e7eb',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+              border: '1.5px solid #e5e7eb',
+                cursor: 'default',
             }}
-          >
-  <CoverCanvas draggable={ true } scale = { 1} />
-    </div>
-    < /div>
+onPointerMove = { onPointerMoveEditor }
+onPointerUp = { onPointerUpEditor }
+onPointerLeave = { onPointerUpEditor }
+  >
+  { renderCanvas(true, 1) }
+  < /div>
+  < /div>
 
-{/* Preview: same canvas, scaled + rotated */ }
-<div>
-  <div className="flex items-center justify-between mb-1" >
-    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide" > Vista previa pantalla < /p>
+{/* PREVIEW — scaled + rotated */ }
+<div className="flex-shrink-0" >
+  <div className="flex items-center justify-between mb-1.5 gap-3" >
+    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide" > Vista previa < /p>
       < div className = "flex gap-1" >
       {
         [0, 90, 180, 270].map(deg => (
           <button
                   key= { deg }
                   onClick = {() => setPreviewRotation(deg)}
-className = {`px-2 py-1 rounded text-xs font-medium transition-colors ${previewRotation === deg ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+className = {`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${previewRotation === deg ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 >
   { deg }°
 </button>
@@ -385,7 +406,7 @@ className = {`px-2 py-1 rounded text-xs font-medium transition-colors ${previewR
 </div>
   < /div>
 
-{/* Outer box matches the rotated bounding box */ }
+{/* Outer box exactly matches the rotated canvas bounding box */ }
 <div
             style={
   {
@@ -394,13 +415,13 @@ className = {`px-2 py-1 rounded text-xs font-medium transition-colors ${previewR
         position: 'relative',
           overflow: 'hidden',
             borderRadius: 12,
-              border: '2px solid #1f2937',
+              border: '2.5px solid #1f2937',
                 background: '#000',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
             }
 }
           >
-  {/* Inner wrapper: centers the scaled canvas, then rotates */ }
+  {/* Center + rotate the scaled canvas */ }
   < div
 style = {{
   position: 'absolute',
@@ -412,68 +433,24 @@ style = {{
               marginTop: -scaledH / 2,
                 transform: `rotate(${previewRotation}deg)`,
                   transformOrigin: 'center center',
-                    transition: 'transform 0.4s ease',
+                    transition: 'transform 0.35s ease',
                       overflow: 'hidden',
                         borderRadius: 4,
               }}
             >
-  <CoverCanvas draggable={ false } scale = { previewScale } />
-    </div>
+  { renderCanvas(false, ps) }
+  < /div>
 
-{/* Degree label */ }
-<div style={
-  {
-    position: 'absolute', top: 6, right: 8,
-      background: 'rgba(0,0,0,0.6)', color: 'white',
-        fontSize: 11, padding: '2px 7px', borderRadius: 20,
-            }
-}>
-  { previewRotation }°
+  < div style = {{ position: 'absolute', top: 6, right: 8, background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: 10, padding: '2px 7px', borderRadius: 20 }}>
+    { previewRotation }°
 </div>
   < /div>
 
-  < p className = "text-xs text-gray-400 mt-1" >
-    { isRotated90? 'Pantalla horizontal (rotada)': 'Pantalla vertical' }
+  < p className = "text-xs text-gray-400 mt-1 text-center" >
+    { isRotated90? '↔ Pantalla horizontal': '↕ Pantalla vertical' }
     < /p>
     < /div>
     < /div>
     < /div>
   );
-}
-
-// Separate component to render a single element's visual
-function ElementContent({ el, onSelect }: { el: CoverElement; onSelect?: () => void }) {
-  if (el.elementType === 'text') {
-    return (
-      <div
-        style= {{
-      fontSize: `${el.style.fontSize || 24}px`,
-        color: String(el.style.color || '#fff'),
-          fontFamily: String(el.style.fontFamily || 'serif'),
-            fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-              fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                  whiteSpace: 'nowrap',
-                    userSelect: 'none',
-                      cursor: onSelect ? 'grab' : 'default',
-        }
-  }
-  onPointerDownCapture = { onSelect }
-    >
-    { el.content }
-    < /div>
-    );
-}
-if (el.elementType === 'image') {
-  return (
-    <img
-        src= { el.content }
-  alt = ""
-  style = {{ width: el.size.width, height: el.size.height, objectFit: 'contain', pointerEvents: 'none' }
-}
-onPointerDownCapture = { onSelect }
-  />
-    );
-  }
-return null;
 }
