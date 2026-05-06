@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { GuestData, TableData } from '../types';
-import { generateId, addGuest, getGuests, deleteGuest, getTables } from '../store';
+import { generateId, addGuest, getGuests, deleteGuest, getTables, saveTable } from '../store';
 
 interface GuestImportProps {
   eventId: string;
@@ -32,13 +32,49 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const handleAddManual = async () => {
     const name = manualName.trim();
     if (!name) return;
+
+    const tableLabel = manualTable.trim();
+    let tableId = '';
+
+    // Si el usuario escribio un numero de mesa
+    if (tableLabel) {
+      // Buscar si ya existe una mesa con ese label
+      const existingTable = tables.find(t => t.label.toLowerCase() === tableLabel.toLowerCase());
+
+      if (existingTable) {
+        // Usar la mesa existente
+        tableId = existingTable.id;
+      } else {
+        // Crear la mesa automaticamente
+        const newTable: TableData = {
+          id: generateId(),
+          eventId,
+          label: tableLabel,
+          shape: 'round',
+          position: { x: 100 + (tables.length % 10) * 100, y: 100 + Math.floor(tables.length / 10) * 100 },
+          size: { width: 80, height: 80 },
+          videoUrl: '',
+          videoType: '',
+        };
+        try {
+          const savedTable = await saveTable(newTable);
+          tableId = savedTable.id;
+          // Actualizar la lista local de mesas
+          setTables(prev => [...prev, savedTable]);
+        } catch (err) {
+          console.error('Error creando mesa:', err);
+        }
+      }
+    }
+
     const guest: GuestData = {
       id: generateId(),
       eventId,
       name,
       surname: manualSurname.trim(),
-      tableId: manualTable || '',
+      tableId,
     };
+
     try {
       await addGuest(guest);
       setManualName('');
@@ -63,6 +99,7 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   );
 
   const getTableName = (tableId: string) => {
+    if (!tableId) return 'Sin mesa';
     return tables.find(t => t.id === tableId)?.label ?? 'Sin mesa';
   };
 
@@ -71,8 +108,9 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
       <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Agregar Invitado < /h3>
-        < div className = "flex flex-wrap gap-2" >
-          <input
+        < p className = "text-xs text-gray-500" > Escribe el numero de mesa y se creara automaticamente en la seccion Mesas < /p>
+          < div className = "flex flex-wrap gap-2" >
+            <input
             type="text"
   value = { manualName }
   onChange = {(e) => setManualName(e.target.value)
@@ -81,7 +119,7 @@ onKeyDown = {(e) => { if (e.key === 'Enter') handleAddManual(); }}
 onClick = {(e) => e.stopPropagation()}
 onFocus = {(e) => e.stopPropagation()}
 placeholder = "Nombre *"
-className = "flex-1 min-w-[110px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
 autoComplete = "off"
   />
   <input
@@ -92,25 +130,22 @@ onKeyDown = {(e) => { if (e.key === 'Enter') handleAddManual(); }}
 onClick = {(e) => e.stopPropagation()}
 onFocus = {(e) => e.stopPropagation()}
 placeholder = "Apellido"
-className = "flex-1 min-w-[110px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
 autoComplete = "off"
   />
-  <select
-            value={ manualTable }
+  <input
+            type="text"
+value = { manualTable }
 onChange = {(e) => setManualTable(e.target.value)}
+onKeyDown = {(e) => { if (e.key === 'Enter') handleAddManual(); }}
 onClick = {(e) => e.stopPropagation()}
 onFocus = {(e) => e.stopPropagation()}
-className = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-  >
-  <option value="" > Sin mesa < /option>
-{
-  tables.map(t => (
-    <option key= { t.id } value = { t.id } > { t.label } < /option>
-  ))
-}
-</select>
-  < button
-type = "button"
+placeholder = "Mesa (ej: 1, 2, VIP)"
+className = "w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+autoComplete = "off"
+  />
+  <button
+            type="button"
 onClick = { handleAddManual }
 className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors"
   >
@@ -146,7 +181,7 @@ autoComplete = "off"
     <div className="min-w-0" >
   <span className="text-sm font-medium text-gray-800" > { g.name } { g.surname } < /span>
   < span className = "ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium" >
-  { getTableName(g.tableId)
+  Mesa: { getTableName(g.tableId)
 }
 </span>
   < /div>
