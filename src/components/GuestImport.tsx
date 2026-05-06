@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GuestData, TableData } from '../types';
 import { generateId, addGuest, getGuests, deleteGuest, getTables } from '../store';
 
@@ -14,15 +14,20 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const [manualSurname, setManualSurname] = useState('');
   const [manualTable, setManualTable] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const initialLoadDone = useRef(false);
 
-  const refresh = async () => {
+  const loadData = async () => {
     const [g, t] = await Promise.all([getGuests(eventId), getTables(eventId)]);
     setGuests(g);
     setTables(t);
-    onGuestsChanged();
   };
 
-  useEffect(() => { refresh(); }, [eventId]);
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      loadData();
+    }
+  }, [eventId]);
 
   const handleAddManual = async () => {
     const name = manualName.trim();
@@ -39,7 +44,8 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       setManualName('');
       setManualSurname('');
       setManualTable('');
-      await refresh();
+      await loadData();
+      onGuestsChanged();
     } catch (err) {
       console.error('addGuest error:', err);
       alert('Error al agregar invitado. Intenta de nuevo.');
@@ -48,7 +54,8 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
   const handleDelete = async (id: string) => {
     await deleteGuest(id);
-    await refresh();
+    await loadData();
+    onGuestsChanged();
   };
 
   const filtered = guests.filter(g =>
@@ -68,60 +75,71 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
           <input
             type="text"
   value = { manualName }
-  onChange = { e => setManualName(e.target.value) }
-  onKeyDown = { e => e.key === 'Enter' && handleAddManual() }
-  placeholder = "Nombre *"
-  className = "flex-1 min-w-[110px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-    />
-    <input
-            type="text"
-  value = { manualSurname }
-  onChange = { e => setManualSurname(e.target.value) }
-  onKeyDown = { e => e.key === 'Enter' && handleAddManual() }
-  placeholder = "Apellido"
-  className = "flex-1 min-w-[110px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-    />
-    <select
-            value={ manualTable }
-  onChange = { e => setManualTable(e.target.value) }
-  className = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-    >
-    <option value="" > Sin mesa < /option>
-  {
-    tables.map(t => (
-      <option key= { t.id } value = { t.id } > { t.label } < /option>
-    ))
-  }
-  </select>
-    < button
-  type = "button"
-  onClick = { handleAddManual }
-  className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors"
-    >
-    Agregar
-    < /button>
-    < /div>
-    < /div>
-
-    < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
-      <div className="flex items-center justify-between gap-2" >
-        <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" >
-          Lista({ guests.length })
-          < /h3>
-          < input
-  type = "text"
-  value = { searchTerm }
-  onChange = { e => setSearchTerm(e.target.value) }
-  placeholder = "Buscar..."
-  className = "px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 w-36"
-    />
-    </div>
-    < div className = "max-h-96 overflow-y-auto divide-y divide-gray-100" >
-      {
-        filtered.length === 0 && (
-          <p className="text-sm text-gray-400 py-6 text-center"> No hay invitados</ p >
-          )
+  onChange = {(e) => setManualName(e.target.value)
 }
+onKeyDown = {(e) => { if (e.key === 'Enter') handleAddManual(); }}
+onClick = {(e) => e.stopPropagation()}
+onFocus = {(e) => e.stopPropagation()}
+placeholder = "Nombre *"
+className = "flex-1 min-w-[110px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+autoComplete = "off"
+  />
+  <input
+            type="text"
+value = { manualSurname }
+onChange = {(e) => setManualSurname(e.target.value)}
+onKeyDown = {(e) => { if (e.key === 'Enter') handleAddManual(); }}
+onClick = {(e) => e.stopPropagation()}
+onFocus = {(e) => e.stopPropagation()}
+placeholder = "Apellido"
+className = "flex-1 min-w-[110px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+autoComplete = "off"
+  />
+  <select
+            value={ manualTable }
+onChange = {(e) => setManualTable(e.target.value)}
+onClick = {(e) => e.stopPropagation()}
+onFocus = {(e) => e.stopPropagation()}
+className = "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+  >
+  <option value="" > Sin mesa < /option>
+{
+  tables.map(t => (
+    <option key= { t.id } value = { t.id } > { t.label } < /option>
+  ))
+}
+</select>
+  < button
+type = "button"
+onClick = { handleAddManual }
+className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors"
+  >
+  Agregar
+  < /button>
+  < /div>
+  < /div>
+
+  < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
+    <div className="flex items-center justify-between gap-2" >
+      <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" >
+        Lista({ guests.length })
+        < /h3>
+        < input
+type = "text"
+value = { searchTerm }
+onChange = {(e) => setSearchTerm(e.target.value)}
+onClick = {(e) => e.stopPropagation()}
+onFocus = {(e) => e.stopPropagation()}
+placeholder = "Buscar..."
+className = "px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 w-36"
+autoComplete = "off"
+  />
+  </div>
+  < div className = "max-h-96 overflow-y-auto divide-y divide-gray-100" >
+    {
+      filtered.length === 0 && (
+        <p className="text-sm text-gray-400 py-6 text-center"> No hay invitados</ p >
+          )}
 {
   filtered.map(g => (
     <div key= { g.id } className = "flex items-center justify-between py-2.5 px-1 gap-2" >
