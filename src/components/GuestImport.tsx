@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { GuestData, TableData } from '../types';
-import { generateId, saveGuests, getGuests, deleteGuest, getTables, saveTable } from '../store';
+import { generateId, addGuest, getGuests, deleteGuest, getTables, saveTable } from '../store';
 
 interface GuestImportProps {
   eventId: string;
@@ -14,6 +14,7 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const [manualSurname, setManualSurname] = useState('');
   const [manualTable, setManualTable] = useState('');
   const [importing, setImporting] = useState(false);
+  const [importCount, setImportCount] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +31,7 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     const file = e.target.files?.[0];
     if (!file) return;
     setImporting(true);
+    setImportCount(null);
 
     try {
       let text = '';
@@ -50,21 +52,23 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
 
-          // Group text items by Y coordinate to reconstruct each row
+          // Group text items by Y coordinate (rounded to nearest 2px to handle tiny shifts)
           const lineMap: Map<number, { x: number; str: string }[]> = new Map();
           for (const item of content.items) {
             const it = item as { str: string; transform: number[] };
             if (!it.str.trim()) continue;
-            const y = Math.round(it.transform[5]);
+            const y = Math.round(it.transform[5] / 2) * 2; // round to 2px buckets
             if (!lineMap.has(y)) lineMap.set(y, []);
             lineMap.get(y)!.push({ x: it.transform[4], str: it.str });
           }
 
-          // Sort rows top→bottom, items left→right within each row
+          // Sort rows top→bottom (descending Y in PDF coords), items left→right
           const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
           for (const y of sortedYs) {
             const items = lineMap.get(y)!.sort((a, b) => a.x - b.x);
-            text += items.map(i => i.str).join(',') + '\n';
+            // Join items - if item already ends with comma don't add another
+            const line = items.map(i => i.str.trim()).filter(Boolean).join(',');
+            if (line) text += line + '\n';
           }
         }
       } else {
@@ -73,12 +77,19 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
       const currentTables = await getTables(eventId);
       const parsed = await parseGuestText(text, eventId, currentTables);
-      const existing = await getGuests(eventId);
-      await saveGuests([...existing, ...parsed], eventId);
+
+      // Use addGuest for each one - does NOT delete existing guests
+      let added = 0;
+      for (const g of parsed) {
+        await addGuest(g);
+        added++;
+      }
+
+      setImportCount(added);
       refresh();
     } catch (err) {
       console.error('Error importing file:', err);
-      alert('Error al importar el archivo. Intenta con formato CSV o texto.');
+      alert('Error al importar el archivo. Verifica que el formato sea: Nombre,Apellido,Mesa');
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -93,47 +104,49 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     existingTables.forEach(t => tableMap.set(t.label.toLowerCase().trim(), t.id));
 
     for (const line of lines) {
-      // Skip header rows
-      if (/^nombre[,\t;|]/i.test(line.trim())) continue;
+      const trimmed = line.trim();
+      // Skip header row
+      if (/^nombre[,;\t|]/i.test(trimmed)) continue;
 
-      const parts = line.split(/[,\t;|]/).map(s => s.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        const name = parts[0] || '';
-        const surname = parts[1] || '';
-        const tableLabel = parts[2] || '';
+      const parts = trimmed.split(/[,;\t|]/).map(s => s.trim()).filter(Boolean);
+      if (parts.length < 2) continue;
 
-        if (name.toLowerCase() === 'nombre') continue;
+      const name = parts[0];
+      const surname = parts[1];
+      const tableLabel = parts[2] || '';
 
-        let tableId = '';
-        if (tableLabel) {
-          const key = tableLabel.toLowerCase().trim();
-          if (tableMap.has(key)) {
-            tableId = tableMap.get(key)!;
-          } else {
-            const newTable: TableData = {
-              id: generateId(),
-              eventId: evId,
-              label: tableLabel,
-              shape: 'round',
-              position: { x: 50 + Math.random() * 400, y: 50 + Math.random() * 300 },
-              size: { width: 80, height: 80 },
-              videoUrl: '',
-              videoType: '',
-            };
-            await saveTable(newTable);
-            tableMap.set(key, newTable.id);
-            tableId = newTable.id;
-          }
+      // Skip if still a header
+      if (name.toLowerCase() === 'nombre') continue;
+
+      let tableId = '';
+      if (tableLabel) {
+        const key = tableLabel.toLowerCase().trim();
+        if (tableMap.has(key)) {
+          tableId = tableMap.get(key)!;
+        } else {
+          const newTable: TableData = {
+            id: generateId(),
+            eventId: evId,
+            label: tableLabel,
+            shape: 'round',
+            position: { x: 50 + Math.random() * 400, y: 50 + Math.random() * 300 },
+            size: { width: 80, height: 80 },
+            videoUrl: '',
+            videoType: '',
+          };
+          await saveTable(newTable);
+          tableMap.set(key, newTable.id);
+          tableId = newTable.id;
         }
-
-        newGuests.push({
-          id: generateId(),
-          eventId: evId,
-          name,
-          surname,
-          tableId,
-        });
       }
+
+      newGuests.push({
+        id: generateId(),
+        eventId: evId,
+        name,
+        surname,
+        tableId,
+      });
     }
     return newGuests;
   };
@@ -148,8 +161,9 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       surname: manualSurname.trim(),
       tableId: manualTable || '',
     };
-    const existing = await getGuests(eventId);
-    await saveGuests([...existing, guest], eventId);
+
+    // Use addGuest (single insert) instead of saveGuests (delete-all + insert)
+    await addGuest(guest);
     setManualName('');
     setManualSurname('');
     setManualTable('');
@@ -175,14 +189,22 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     {/* Import */ }
     < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
       <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Importar Invitados < /h3>
-        < p className = "text-xs text-gray-500" > Carga un archivo CSV, Word o PDF con columnas: Nombre, Apellido, Mesa < /p>
+        < p className = "text-xs text-gray-500" >
+          Carga un archivo CSV, Word o PDF con columnas: <strong>Nombre, Apellido, Mesa < /strong>
+            < /p>
 
-          < div className = "flex gap-2" >
-            <label className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer" >
-              { importing? 'Importando...': 'Cargar Archivo' }
-              < input ref = { fileRef } type = "file" accept = ".csv,.txt,.doc,.docx,.pdf" onChange = { handleFileUpload } className = "hidden" />
-                </label>
-                < button
+            < div className = "flex gap-2 flex-wrap" >
+              <label className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer" >
+                { importing? 'Importando...': 'Cargar Archivo' }
+                < input
+  ref = { fileRef }
+  type = "file"
+  accept = ".csv,.txt,.doc,.docx,.pdf"
+  onChange = { handleFileUpload }
+  className = "hidden"
+    />
+    </label>
+    < button
   onClick = {() => {
     const csv = 'Nombre,Apellido,Mesa\nJuan,Perez,1\nMaria,Garcia,2\nCarlos,Lopez,1';
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -199,7 +221,15 @@ className = "px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg te
   Descargar Plantilla
     < /button>
     < /div>
-    < /div>
+
+{
+  importCount !== null && (
+    <p className="text-sm text-green-600 font-medium" >
+            ✅ { importCount } invitados importados correctamente
+    < /p>
+        )
+}
+</div>
 
 {/* Manual add */ }
 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
@@ -269,8 +299,13 @@ className = "px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline
 }
 </span>
   < /div>
-  < button onClick = {() => removeGuest(g.id)} className = "text-red-400 hover:text-red-600 transition-colors p-1" >
-    <svg xmlns="http://www.w3.org/2000/svg" className = "w-4 h-4" viewBox = "0 0 24 24" fill = "none" stroke = "currentColor" strokeWidth = "2" strokeLinecap = "round" strokeLinejoin = "round" > <path d="M3 6h18" /> <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /> <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /> </svg>
+  < button
+onClick = {() => removeGuest(g.id)}
+className = "text-red-400 hover:text-red-600 transition-colors p-1"
+  >
+  <svg xmlns="http://www.w3.org/2000/svg" className = "w-4 h-4" viewBox = "0 0 24 24" fill = "none" stroke = "currentColor" strokeWidth = "2" strokeLinecap = "round" strokeLinejoin = "round" >
+    <path d="M3 6h18" /> <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /> <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      </svg>
       < /button>
       < /div>
           ))}
