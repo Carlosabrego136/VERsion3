@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GuestData, TableData } from '../types';
 import { generateId, addGuest, getGuests, deleteGuest, getTables, saveTable } from '../store';
+import { supabase } from '../supabaseClient';
 
 interface GuestImportProps {
   eventId: string;
@@ -19,9 +20,10 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Cargar mesas primero, luego invitados
+      // Cargar mesas primero
       const tablesData = await getTables(eventId);
       setTables(tablesData);
+      // Luego cargar invitados
       const guestsData = await getGuests(eventId);
       setGuests(guestsData);
     } catch (err) {
@@ -30,7 +32,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     setLoading(false);
   }, [eventId]);
 
-  // Cargar datos cada vez que el componente se monta o eventId cambia
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -42,18 +43,17 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     const tableLabel = manualTable.trim();
     let tableId = '';
 
-    // Si el usuario escribio un numero de mesa
     if (tableLabel) {
-      // Buscar si ya existe una mesa con ese label
+      // Buscar si ya existe una mesa con ese label (case insensitive)
       const existingTable = tables.find(t => t.label.toLowerCase() === tableLabel.toLowerCase());
 
       if (existingTable) {
-        // Usar la mesa existente
         tableId = existingTable.id;
       } else {
         // Crear la mesa automaticamente
+        const newTableId = generateId();
         const newTable: TableData = {
-          id: generateId(),
+          id: newTableId,
           eventId,
           label: tableLabel,
           shape: 'round',
@@ -65,7 +65,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
         try {
           const savedTable = await saveTable(newTable);
           tableId = savedTable.id;
-          // Actualizar la lista local de mesas
           setTables(prev => [...prev, savedTable]);
         } catch (err) {
           console.error('Error creando mesa:', err);
@@ -73,8 +72,9 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       }
     }
 
+    const guestId = generateId();
     const guest: GuestData = {
-      id: generateId(),
+      id: guestId,
       eventId,
       name,
       surname: manualSurname.trim(),
@@ -82,7 +82,22 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     };
 
     try {
-      await addGuest(guest);
+      // Guardar invitado con table_id directamente
+      const { error } = await supabase.from('guests').insert({
+        id: guestId,
+        event_id: eventId,
+        first_name: name,
+        last_name: manualSurname.trim(),
+        table_id: tableId || null,
+        table_number: 0,
+      });
+
+      if (error) {
+        console.error('Error insertando invitado:', error);
+        alert('Error al agregar invitado. Intenta de nuevo.');
+        return;
+      }
+
       setManualName('');
       setManualSurname('');
       setManualTable('');

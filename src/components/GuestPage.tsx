@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { EventData, TableData, GuestData, LocationMarker } from '../types';
-import { getEvent, getTables, getLocationMarkers, findGuestByName } from '../store';
+import { getEvent, getTables, getLocationMarkers } from '../store';
+import { supabase } from '../supabaseClient';
 
 interface GuestPageProps {
   eventId: string;
@@ -14,8 +15,9 @@ export default function GuestPage({ eventId }: GuestPageProps) {
   const [searchSurname, setSearchSurname] = useState('');
   const [foundGuest, setFoundGuest] = useState<GuestData | null>(null);
   const [foundTable, setFoundTable] = useState<TableData | null>(null);
-  const [phase, setPhase] = useState<'search' | 'video' | 'map'>('search');
+  const [phase, setPhase] = useState<'loading' | 'search' | 'video' | 'map'>('loading');
   const [searching, setSearching] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Map controls
@@ -29,10 +31,28 @@ export default function GuestPage({ eventId }: GuestPageProps) {
 
   useEffect(() => {
     const load = async () => {
-      const [ev, t, m] = await Promise.all([getEvent(eventId), getTables(eventId), getLocationMarkers(eventId)]);
-      if (ev) setEvent(ev);
-      setTables(t);
-      setMarkers(m);
+      setPhase('loading');
+      setLoadError('');
+      try {
+        const [ev, t, m] = await Promise.all([
+          getEvent(eventId),
+          getTables(eventId),
+          getLocationMarkers(eventId)
+        ]);
+
+        if (!ev) {
+          setLoadError('Evento no encontrado');
+          return;
+        }
+
+        setEvent(ev);
+        setTables(t);
+        setMarkers(m);
+        setPhase('search');
+      } catch (err) {
+        console.error('Error cargando datos:', err);
+        setLoadError('Error cargando el evento');
+      }
     };
     load();
   }, [eventId]);
@@ -47,21 +67,57 @@ export default function GuestPage({ eventId }: GuestPageProps) {
   }, [phase, foundTable]);
 
   const handleSearch = async () => {
-    setSearching(true);
-    const guest = await findGuestByName(eventId, searchName, searchSurname);
-    setSearching(false);
-    if (guest) {
-      setFoundGuest(guest);
-      const table = tables.find(t => t.id === guest.tableId);
-      setFoundTable(table || null);
-      if (table?.videoUrl) {
-        setPhase('video');
-      } else {
-        setPhase('map');
-      }
-    } else {
-      alert('No se encontro un invitado con ese nombre. Verifica tu nombre y apellido.');
+    if (!searchName.trim()) {
+      alert('Por favor ingresa tu nombre');
+      return;
     }
+
+    setSearching(true);
+    try {
+      // Buscar invitado directamente en Supabase para asegurar datos frescos
+      const { data, error } = await supabase
+        .from('guests')
+        .select('*')
+        .eq('event_id', eventId)
+        .ilike('first_name', searchName.trim())
+        .ilike('last_name', searchSurname.trim())
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error buscando invitado:', error);
+        alert('Error al buscar. Intenta de nuevo.');
+        setSearching(false);
+        return;
+      }
+
+      if (data) {
+        const guest: GuestData = {
+          id: data.id,
+          eventId: data.event_id,
+          name: data.first_name || '',
+          surname: data.last_name || '',
+          tableId: data.table_id || '',
+        };
+
+        setFoundGuest(guest);
+
+        // Buscar la mesa del invitado
+        const table = tables.find(t => t.id === guest.tableId);
+        setFoundTable(table || null);
+
+        if (table?.videoUrl) {
+          setPhase('video');
+        } else {
+          setPhase('map');
+        }
+      } else {
+        alert('No se encontro un invitado con ese nombre. Verifica tu nombre y apellido.');
+      }
+    } catch (err) {
+      console.error('Error en busqueda:', err);
+      alert('Error al buscar. Intenta de nuevo.');
+    }
+    setSearching(false);
   };
 
   const getMarkerIcon = (type: string) => {
@@ -100,6 +156,30 @@ export default function GuestPage({ eventId }: GuestPageProps) {
     setMapFullscreen(!mapFullscreen);
   };
 
+  // Loading phase
+  if (phase === 'loading') {
+    return (
+      <div className= "min-h-screen bg-gradient-to-br from-stone-50 to-amber-50/30 flex items-center justify-center" >
+      <div className="text-center" >
+        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" > </div>
+          < p className = "text-gray-600" > Cargando evento...</p>
+            < /div>
+            < /div>
+    );
+  }
+
+  // Error phase
+  if (loadError) {
+    return (
+      <div className= "min-h-screen bg-gradient-to-br from-stone-50 to-amber-50/30 flex items-center justify-center" >
+      <div className="text-center" >
+        <h1 className="text-2xl font-bold text-gray-800" > { loadError } < /h1>
+          < p className = "text-gray-500 mt-2" > Verifica el codigo QR < /p>
+            < /div>
+            < /div>
+    );
+  }
+
   if (!event) {
     return (
       <div className= "min-h-screen bg-gradient-to-br from-stone-50 to-amber-50/30 flex items-center justify-center" >
@@ -128,6 +208,7 @@ export default function GuestPage({ eventId }: GuestPageProps) {
     src = { foundTable.videoUrl }
     autoPlay
     controls
+    playsInline
     onEnded = {() => setPhase('map')
   }
   className = "w-full rounded-xl"
