@@ -180,6 +180,18 @@ export default function GuestPage({ eventId }: GuestPageProps) {
 
   // Video phase
   if (phase === 'video' && foundTable?.videoUrl) {
+    const videoUrl = foundTable.videoUrl;
+
+    const getEmbedUrl = (url: string) => {
+      const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+      if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`;
+      const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+      if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+      return null;
+    };
+
+    const embedUrl = getEmbedUrl(videoUrl);
+
     return (
       <div className= "min-h-screen bg-black flex flex-col items-center justify-center p-4" >
       <div className="w-full max-w-lg" >
@@ -190,19 +202,32 @@ export default function GuestPage({ eventId }: GuestPageProps) {
       < p className = "text-white/60 text-sm" > Mesa { foundTable.label } </p>
         < /div>
 
-        < video
-    ref = { videoRef }
-    src = { foundTable.videoUrl }
-    autoPlay
-    controls
-    playsInline
-    onEnded = {() => setPhase('map')
+    {
+      embedUrl ? (
+        <div className= "w-full aspect-video rounded-xl overflow-hidden" >
+        <iframe
+                src={ embedUrl }
+      className = "w-full h-full"
+      allow = "autoplay; fullscreen; picture-in-picture"
+      allowFullScreen
+        />
+        </div>
+          ) : (
+        <video
+              ref= { videoRef }
+      src = { videoUrl }
+      autoPlay
+      controls
+      playsInline
+      onEnded = {() => setPhase('map')
+    }
+    className = "w-full rounded-xl"
+      />
+          )
   }
-  className = "w-full rounded-xl"
-    />
 
-    <div className="flex justify-between mt-4" >
-      <button
+  <div className="flex justify-between mt-4" >
+    <button
               onClick={ () => setPhase('map') }
   className = "px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-sm font-medium transition-colors"
     >
