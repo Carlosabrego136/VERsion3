@@ -28,13 +28,21 @@ export default function VideoManager({ eventId }: VideoManagerProps) {
     load();
   }, [eventId]);
 
+  const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(url);
+
+  const getEmbedUrl = (url: string) => {
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    return null;
+  };
+
   const handleSaveUrl = async (tableId: string) => {
     const url = urlInputs[tableId]?.trim();
     setSaving(s => ({ ...s, [tableId]: true }));
     const updated = tables.map(t => {
-      if (t.id === tableId) {
-        return { ...t, videoUrl: url || '', videoType: url ? 'url' : '' };
-      }
+      if (t.id === tableId) return { ...t, videoUrl: url || '', videoType: url ? 'url' : '' };
       return t;
     });
     setTables(updated);
@@ -54,22 +62,12 @@ export default function VideoManager({ eventId }: VideoManagerProps) {
     if (table) await saveTable(table);
   };
 
-  const getVideoEmbedUrl = (url: string) => {
-    // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-    // YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    return null;
-  };
-
   return (
     <div className= "space-y-4" >
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4" >
-      <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-1" > Videos por Mesa < /h3>
+      <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide mb-1" > Videos e Imágenes por Mesa < /h3>
         < p className = "text-xs text-gray-500 mb-4" >
-          Pega la URL del video de cada mesa.Funciona con enlaces de < strong > GoDaddy, Vimeo, YouTube < /strong> o cualquier URL directa de video.
+          Pega la URL del video o imagen de cada mesa.Funciona con < strong > GoDaddy < /strong> (.mp4, .jpg, .png), <strong>Vimeo</strong > y < strong > YouTube < /strong>.
             < /p>
 
   {
@@ -78,66 +76,77 @@ export default function VideoManager({ eventId }: VideoManagerProps) {
         ) : (
       <div className= "grid gap-4 sm:grid-cols-2" >
       {
-        tables.map(t => (
-          <div key= { t.id } className = "border border-gray-200 rounded-lg p-3 space-y-2" >
-          <div className="flex items-center justify-between" >
-        <div>
-        <span className="font-semibold text-gray-800 text-sm" > Mesa { t.label } < /span>
-        < div className = "text-xs text-gray-400" > { guestNames[t.id] || 'Sin invitados' } < /div>
-        < /div>
-                  {
-            t.videoUrl && (
-              <button onClick={() => handleRemove(t.id)} className = "text-red-400 hover:text-red-600 text-xs" >
-                Quitar
-                < /button>
-                  )
-  }
-  </div>
+        tables.map(t => {
+          const currentUrl = t.videoUrl || '';
+          const embedUrl = currentUrl ? getEmbedUrl(currentUrl) : null;
+          const isImg = currentUrl ? isImage(currentUrl) : false;
 
-  {/* Preview */ }
-  {
-    t.videoUrl && (() => {
-      const embedUrl = getVideoEmbedUrl(t.videoUrl);
-      if (embedUrl) {
-        return (
-          <div className= "rounded-lg overflow-hidden bg-black aspect-video" >
-          <iframe
-                          src={ embedUrl }
-        className = "w-full h-full"
-        allow = "autoplay; fullscreen"
-        allowFullScreen
-          />
-          </div>
-                    );
+          return (
+            <div key= { t.id } className = "border border-gray-200 rounded-lg p-3 space-y-2" >
+              <div className="flex items-center justify-between" >
+                <div>
+                <span className="font-semibold text-gray-800 text-sm" > Mesa { t.label } </span>
+                  < div className = "text-xs text-gray-400" > { guestNames[t.id] || 'Sin invitados' } < /div>
+                    < /div>
+                    < div className = "flex items-center gap-2" >
+                      { currentUrl && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200" >
+                          { isImg? '🖼 Imagen': '🎬 Video' }
+                          < /span>
+                      )
       }
-      return (
-        <div className= "rounded-lg overflow-hidden bg-black" >
-        <video src={ t.videoUrl } className = "w-full h-32 object-cover" controls preload = "metadata" />
-          </div>
-                  );
-    })()
-  }
+    {
+      currentUrl && (
+        <button onClick={ () => handleRemove(t.id) } className = "text-red-400 hover:text-red-600 text-xs" >
+          Quitar
+          < /button>
+                      )
+    }
+    </div>
+      < /div>
 
-  {/* URL Input */ }
-  <div className="flex gap-2" >
-    <input
-                    type="url"
-  value = { urlInputs[t.id] || '' }
-  onChange = { e => setUrlInputs(u => ({ ...u, [t.id]: e.target.value }))
-}
-placeholder = "https://vimeo.com/... o https://tudominio.com/video.mp4"
-className = "flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
-  />
-  <button
-                    onClick={ () => handleSaveUrl(t.id) }
-disabled = { saving[t.id]}
-className = "px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-  >
-  { saving[t.id]? '...' : 'Guardar'}
-  < /button>
-  < /div>
-  < /div>
-            ))}
+    {/* Preview */ }
+    {
+      currentUrl && (() => {
+        if (embedUrl) return (
+          <div className= "rounded-lg overflow-hidden bg-black aspect-video" >
+          <iframe src={ embedUrl } className = "w-full h-full" allow = "autoplay; fullscreen" allowFullScreen />
+            </div>
+                    );
+        if (isImg) return (
+          <div className= "rounded-lg overflow-hidden bg-gray-100" >
+          <img src={ currentUrl } alt = "preview" className = "w-full h-32 object-cover" />
+            </div>
+                    );
+        return (
+          <div className= "rounded-lg overflow-hidden bg-black" >
+          <video src={ currentUrl } className = "w-full h-32 object-cover" controls preload = "metadata" />
+            </div>
+                    );
+      })()
+    }
+
+    {/* URL Input */ }
+    <div className="flex gap-2" >
+      <input
+                      type="url"
+    value = { urlInputs[t.id] || '' }
+    onChange = { e => setUrlInputs(u => ({ ...u, [t.id]: e.target.value }))
+  }
+  placeholder = "https://videos.creativeartvideo.com/M1.mp4"
+  className = "flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+    />
+    <button
+                      onClick={ () => handleSaveUrl(t.id) }
+  disabled = { saving[t.id]}
+  className = "px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+    >
+    { saving[t.id]? '...' : 'Guardar'}
+    < /button>
+    < /div>
+    < /div>
+              );
+})}
 </div>
         )}
 </div>
