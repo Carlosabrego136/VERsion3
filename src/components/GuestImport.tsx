@@ -15,15 +15,16 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
   const [manualTable, setManualTable] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Cargar mesas primero
-      const tablesData = await getTables(eventId);
+      const [tablesData, guestsData] = await Promise.all([
+        getTables(eventId),
+        getGuests(eventId)
+      ]);
       setTables(tablesData);
-      // Luego cargar invitados
-      const guestsData = await getGuests(eventId);
       setGuests(guestsData);
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -37,53 +38,47 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
   const handleAddManual = async () => {
     const name = manualName.trim();
-    if (!name) return;
+    if (!name || adding) return;
 
+    setAdding(true);
     const tableLabel = manualTable.trim();
     let tableId = '';
     let currentTables = [...tables];
 
-    if (tableLabel) {
-      // Buscar si ya existe una mesa con ese label
-      const existingTable = currentTables.find(t => t.label.toLowerCase() === tableLabel.toLowerCase());
+    try {
+      if (tableLabel) {
+        const existingTable = currentTables.find(t => t.label.toLowerCase() === tableLabel.toLowerCase());
 
-      if (existingTable) {
-        tableId = existingTable.id;
-      } else {
-        // Crear la mesa automaticamente
-        const newTableId = generateId();
-        const newTable: TableData = {
-          id: newTableId,
-          eventId,
-          label: tableLabel,
-          shape: 'round',
-          position: { x: 100 + (currentTables.length % 10) * 120, y: 100 + Math.floor(currentTables.length / 10) * 120 },
-          size: { width: 80, height: 80 },
-          videoUrl: '',
-          videoType: '',
-        };
-        try {
+        if (existingTable) {
+          tableId = existingTable.id;
+        } else {
+          const newTableId = generateId();
+          const newTable: TableData = {
+            id: newTableId,
+            eventId,
+            label: tableLabel,
+            shape: 'round',
+            position: { x: 100 + (currentTables.length % 10) * 120, y: 100 + Math.floor(currentTables.length / 10) * 120 },
+            size: { width: 80, height: 80 },
+            videoUrl: '',
+            videoType: '',
+          };
           const savedTable = await saveTable(newTable);
           tableId = savedTable.id;
           currentTables = [...currentTables, savedTable];
           setTables(currentTables);
-        } catch (err) {
-          console.error('Error creando mesa:', err);
         }
       }
-    }
 
-    const guestId = generateId();
-    const guest: GuestData = {
-      id: guestId,
-      eventId,
-      name,
-      surname: manualSurname.trim(),
-      tableId,
-    };
+      const guestId = generateId();
+      const guest: GuestData = {
+        id: guestId,
+        eventId,
+        name,
+        surname: manualSurname.trim(),
+        tableId,
+      };
 
-    try {
-      // Usar saveGuest del store que mapea correctamente
       await saveGuest(guest);
 
       setManualName('');
@@ -92,15 +87,21 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
       await loadData();
       onGuestsChanged();
     } catch (err) {
-      console.error('addGuest error:', err);
+      console.error('Error al agregar invitado:', err);
       alert('Error al agregar invitado. Intenta de nuevo.');
+    } finally {
+      setAdding(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteGuest(id);
-    await loadData();
-    onGuestsChanged();
+    try {
+      await deleteGuest(id);
+      await loadData();
+      onGuestsChanged();
+    } catch (err) {
+      console.error('Error al eliminar invitado:', err);
+    }
   };
 
   const filtered = guests.filter(g =>
@@ -123,7 +124,6 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
   return (
     <div className= "space-y-4" >
-
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
       <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" > Agregar Invitado < /h3>
         < p className = "text-xs text-gray-500" > Escribe el numero de mesa y se creara automaticamente en la seccion Mesas < /p>
@@ -139,6 +139,7 @@ onFocus = {(e) => e.stopPropagation()}
 placeholder = "Nombre *"
 className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
 autoComplete = "off"
+disabled = { adding }
   />
   <input
             type="text"
@@ -150,6 +151,7 @@ onFocus = {(e) => e.stopPropagation()}
 placeholder = "Apellido"
 className = "flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
 autoComplete = "off"
+disabled = { adding }
   />
   <input
             type="text"
@@ -161,13 +163,15 @@ onFocus = {(e) => e.stopPropagation()}
 placeholder = "Mesa (ej: 1, 2, VIP)"
 className = "w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
 autoComplete = "off"
+disabled = { adding }
   />
   <button
             type="button"
 onClick = { handleAddManual }
-className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors"
+disabled = { adding || !manualName.trim()}
+className = "px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
   >
-  Agregar
+  { adding? 'Agregando...': 'Agregar' }
   < /button>
   < /div>
   < /div>
@@ -198,9 +202,8 @@ autoComplete = "off"
     <div key= { g.id } className = "flex items-center justify-between py-2.5 px-1 gap-2" >
     <div className="min-w-0" >
   <span className="text-sm font-medium text-gray-800" > { g.name } { g.surname } < /span>
-  < span className = {`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${g.tableId ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-    }`}>
-      Mesa: { getTableName(g.tableId) }
+  < span className = {`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${g.tableId ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+    Mesa: { getTableName(g.tableId) }
 </span>
   < /div>
   < button
@@ -218,7 +221,6 @@ className = "shrink-0 text-red-400 hover:text-red-600 transition-colors p-1"
           ))}
 </div>
   < /div>
-
   < /div>
   );
 }

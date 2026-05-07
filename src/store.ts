@@ -74,13 +74,20 @@ export async function saveGuest(guest: GuestData): Promise<GuestData> {
   return data ? mapGuestFromDb(data) : guest;
 }
 
-export async function saveGuests(guests: GuestData[], eventId: string): Promise<void> {
-  const { error: delError } = await supabase.from('guests').delete().eq('event_id', eventId);
-  if (delError) { console.error('saveGuests delete', delError); return; }
+export async function saveGuestsBatch(guests: GuestData[]): Promise<void> {
   if (guests.length === 0) return;
-  const rows = guests.map(mapGuestToDb);
-  const { error: insError } = await supabase.from('guests').insert(rows);
-  if (insError) console.error('saveGuests insert', insError);
+
+  // Dividir en lotes de 50 para evitar timeouts con muchos invitados
+  const batchSize = 50;
+  for (let i = 0; i < guests.length; i += batchSize) {
+    const batch = guests.slice(i, i + batchSize);
+    const rows = batch.map(mapGuestToDb);
+    const { error } = await supabase.from('guests').upsert(rows);
+    if (error) {
+      console.error('saveGuestsBatch error:', error);
+      throw error;
+    }
+  }
 }
 
 export async function addGuest(guest: GuestData): Promise<GuestData> {
