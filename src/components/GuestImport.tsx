@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GuestData, TableData } from '../types';
-import { generateId, addGuest, getGuests, deleteGuest, getTables, saveTable } from '../store';
-import { supabase } from '../supabaseClient';
+import { generateId, getGuests, deleteGuest, getTables, saveTable, saveGuest } from '../store';
 
 interface GuestImportProps {
   eventId: string;
@@ -42,10 +41,11 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
 
     const tableLabel = manualTable.trim();
     let tableId = '';
+    let currentTables = [...tables];
 
     if (tableLabel) {
-      // Buscar si ya existe una mesa con ese label (case insensitive)
-      const existingTable = tables.find(t => t.label.toLowerCase() === tableLabel.toLowerCase());
+      // Buscar si ya existe una mesa con ese label
+      const existingTable = currentTables.find(t => t.label.toLowerCase() === tableLabel.toLowerCase());
 
       if (existingTable) {
         tableId = existingTable.id;
@@ -57,7 +57,7 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
           eventId,
           label: tableLabel,
           shape: 'round',
-          position: { x: 100 + (tables.length % 10) * 120, y: 100 + Math.floor(tables.length / 10) * 120 },
+          position: { x: 100 + (currentTables.length % 10) * 120, y: 100 + Math.floor(currentTables.length / 10) * 120 },
           size: { width: 80, height: 80 },
           videoUrl: '',
           videoType: '',
@@ -65,7 +65,8 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
         try {
           const savedTable = await saveTable(newTable);
           tableId = savedTable.id;
-          setTables(prev => [...prev, savedTable]);
+          currentTables = [...currentTables, savedTable];
+          setTables(currentTables);
         } catch (err) {
           console.error('Error creando mesa:', err);
         }
@@ -82,21 +83,8 @@ export default function GuestImport({ eventId, onGuestsChanged }: GuestImportPro
     };
 
     try {
-      // Guardar invitado con table_id directamente
-      const { error } = await supabase.from('guests').insert({
-        id: guestId,
-        event_id: eventId,
-        first_name: name,
-        last_name: manualSurname.trim(),
-        table_id: tableId || null,
-        table_number: 0,
-      });
-
-      if (error) {
-        console.error('Error insertando invitado:', error);
-        alert('Error al agregar invitado. Intenta de nuevo.');
-        return;
-      }
+      // Usar saveGuest del store que mapea correctamente
+      await saveGuest(guest);
 
       setManualName('');
       setManualSurname('');

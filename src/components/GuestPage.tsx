@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { EventData, TableData, GuestData, LocationMarker } from '../types';
-import { getEvent, getTables, getLocationMarkers } from '../store';
-import { supabase } from '../supabaseClient';
+import { getEvent, getTables, getLocationMarkers, getGuests } from '../store';
 
 interface GuestPageProps {
   eventId: string;
@@ -10,6 +9,7 @@ interface GuestPageProps {
 export default function GuestPage({ eventId }: GuestPageProps) {
   const [event, setEvent] = useState<EventData | null>(null);
   const [tables, setTables] = useState<TableData[]>([]);
+  const [guests, setGuests] = useState<GuestData[]>([]);
   const [markers, setMarkers] = useState<LocationMarker[]>([]);
   const [searchName, setSearchName] = useState('');
   const [searchSurname, setSearchSurname] = useState('');
@@ -34,9 +34,10 @@ export default function GuestPage({ eventId }: GuestPageProps) {
       setPhase('loading');
       setLoadError('');
       try {
-        const [ev, t, m] = await Promise.all([
+        const [ev, t, g, m] = await Promise.all([
           getEvent(eventId),
           getTables(eventId),
+          getGuests(eventId),
           getLocationMarkers(eventId)
         ]);
 
@@ -47,6 +48,7 @@ export default function GuestPage({ eventId }: GuestPageProps) {
 
         setEvent(ev);
         setTables(t);
+        setGuests(g);
         setMarkers(m);
         setPhase('search');
       } catch (err) {
@@ -74,35 +76,20 @@ export default function GuestPage({ eventId }: GuestPageProps) {
 
     setSearching(true);
     try {
-      // Buscar invitado directamente en Supabase para asegurar datos frescos
-      const { data, error } = await supabase
-        .from('guests')
-        .select('*')
-        .eq('event_id', eventId)
-        .ilike('first_name', searchName.trim())
-        .ilike('last_name', searchSurname.trim())
-        .maybeSingle();
+      // Buscar invitado en la lista cargada
+      const nameSearch = searchName.trim().toLowerCase();
+      const surnameSearch = searchSurname.trim().toLowerCase();
 
-      if (error) {
-        console.error('Error buscando invitado:', error);
-        alert('Error al buscar. Intenta de nuevo.');
-        setSearching(false);
-        return;
-      }
+      const found = guests.find(g =>
+        g.name.toLowerCase() === nameSearch &&
+        (surnameSearch === '' || g.surname.toLowerCase() === surnameSearch)
+      );
 
-      if (data) {
-        const guest: GuestData = {
-          id: data.id,
-          eventId: data.event_id,
-          name: data.first_name || '',
-          surname: data.last_name || '',
-          tableId: data.table_id || '',
-        };
-
-        setFoundGuest(guest);
+      if (found) {
+        setFoundGuest(found);
 
         // Buscar la mesa del invitado
-        const table = tables.find(t => t.id === guest.tableId);
+        const table = tables.find(t => t.id === found.tableId);
         setFoundTable(table || null);
 
         if (table?.videoUrl) {
