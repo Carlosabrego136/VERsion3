@@ -23,12 +23,21 @@ export default function AdminPanel() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [guestRefreshKey, setGuestRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
-    const events = await getEvents();
-    setEventList(events);
-    setLoading(false);
+    setError(null);
+    try {
+      const events = await getEvents();
+      setEventList(events);
+    } catch (err) {
+      console.error('Error cargando eventos:', err);
+      setError(err instanceof Error ? err.message : 'Error desconocido al cargar eventos');
+      setEventList([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
@@ -113,6 +122,27 @@ export default function AdminPanel() {
 
     {
       loading && <p className="text-center text-gray-400 mt-8" > Cargando...</p>}
+
+      {
+        error && (
+          <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4" >
+            <p className="text-red-700 text-sm font-medium" > Error de conexion < /p>
+              < p className = "text-red-600 text-xs mt-1" > { error } < /p>
+                < button
+        onClick = { loadEvents }
+        className = "mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition-colors"
+          >
+          Reintentar
+          < /button>
+          < /div>
+          )
+      }
+
+      {
+        !loading && !error && eventList.length === 0 && (
+          <p className="text-center text-gray-400 mt-8" > No hay eventos.Crea uno nuevo para comenzar.< /p>
+          )
+      }
 
       {
         eventList.length > 0 && (

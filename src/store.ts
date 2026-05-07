@@ -5,7 +5,10 @@ import { EventData, TableData, GuestData, CoverElement, LocationMarker } from '.
 
 export async function getEvents(): Promise<EventData[]> {
   const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-  if (error) { console.error('getEvents', error); return []; }
+  if (error) {
+    console.error('getEvents', error);
+    throw new Error(`Error cargando eventos: ${error.message}`);
+  }
   return (data || []).map(mapEventFromDb);
 }
 
@@ -18,7 +21,10 @@ export async function getEvent(id: string): Promise<EventData | null> {
 export async function saveEvent(event: EventData): Promise<EventData> {
   const row = mapEventToDb(event);
   const { data, error } = await supabase.from('events').upsert(row).select().maybeSingle();
-  if (error) { console.error('saveEvent', error); return event; }
+  if (error) {
+    console.error('saveEvent', error);
+    throw new Error(`Error guardando evento: ${error.message}`);
+  }
   return data ? mapEventFromDb(data) : event;
 }
 
