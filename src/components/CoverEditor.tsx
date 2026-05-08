@@ -93,20 +93,26 @@ export default function CoverEditor({
     if (id === 'qr') {
       onQrPositionChange({ x, y });
     } else {
-      setElements(prev => {
-        const updated = prev.map(el => el.id === id ? { ...el, position: { x, y } } : el);
-        const el = updated.find(e => e.id === id);
-        if (el) saveCoverElement(el);
-        return updated;
-      });
+      setElements(prev =>
+        prev.map(el => el.id === id ? { ...el, position: { x, y } } : el)
+      );
     }
   }, [onQrPositionChange]);
 
+  // Save position only once when drag ends — not on every pixel move
   const onPointerUpEditor = useCallback(() => {
+    if (draggingRef.current && draggingRef.current.id !== 'qr') {
+      const id = draggingRef.current.id;
+      setElements(prev => {
+        const el = prev.find(e => e.id === id);
+        if (el) saveCoverElement(el).catch(err => console.error('saveCoverElement drag error:', err));
+        return prev;
+      });
+    }
     draggingRef.current = null;
   }, []);
 
-  const addTextElement = async () => {
+  const addTextElement = () => {
     if (!newText.trim()) return;
     const el: CoverElement = {
       id: generateId(),
@@ -125,9 +131,10 @@ export default function CoverEditor({
       animation: '',
       zIndex: elements.length + 1,
     };
-    await saveCoverElement(el);
+    // UI updates instantly — Supabase saves in background
     setElements(prev => [...prev, el]);
     setNewText('');
+    saveCoverElement(el).catch(err => console.error('saveCoverElement text error:', err));
   };
 
   const addImageElement = () => {
@@ -138,7 +145,7 @@ export default function CoverEditor({
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = async () => {
+      reader.onload = () => {
         const el: CoverElement = {
           id: generateId(),
           eventId,
@@ -150,8 +157,9 @@ export default function CoverEditor({
           animation: '',
           zIndex: elements.length + 1,
         };
-        await saveCoverElement(el);
+        // UI updates instantly — Supabase saves in background
         setElements(prev => [...prev, el]);
+        saveCoverElement(el).catch(err => console.error('saveCoverElement image error:', err));
       };
       reader.readAsDataURL(file);
     };
@@ -248,15 +256,15 @@ onPointerDown = { interactive?(e) => onPointerDownElement(e, el.id) : undefined 
 {
   el.elementType === 'text' && (
     <div style={
-      {
-        fontSize: `${el.style.fontSize || 24}px`,
-          color: String(el.style.color || '#fff'),
-            fontFamily: String(el.style.fontFamily || 'serif'),
-              fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-                fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                  textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                    whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
+  {
+    fontSize: `${el.style.fontSize || 24}px`,
+      color: String(el.style.color || '#fff'),
+        fontFamily: String(el.style.fontFamily || 'serif'),
+          fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+            fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
             }
 }>
   { el.content }
