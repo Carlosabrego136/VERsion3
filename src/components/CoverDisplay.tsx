@@ -143,14 +143,14 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
 
       if (animCanvas) animCanvas.style.opacity = '1';
 
-      const OW = captureCanvas.width;  // CW*2
-      const OH = captureCanvas.height; // CH*2
-      // Llenar todo el canvas sin barras — el snapshot y el canvas son del mismo ratio
-      const fitScale = Math.max(OW / overlaySnapshot.width, OH / overlaySnapshot.height);
-      const ox = (OW - overlaySnapshot.width * fitScale) / 2;
-      const oy = (OH - overlaySnapshot.height * fitScale) / 2;
-      const dw = overlaySnapshot.width * fitScale;
-      const dh = overlaySnapshot.height * fitScale;
+      // El snapshot de html2canvas con scale:2 sobre un div de CW×CH = exactamente CW*2 × CH*2
+      // Dibujamos 1:1 sin ningún escalado extra — sin barras, sin recorte
+      const OW = captureCanvas.width;
+      const OH = captureCanvas.height;
+      const ox = 0;
+      const oy = 0;
+      const dw = OW;
+      const dh = OH;
 
       const duration = 10000;
       const startTime = Date.now();
