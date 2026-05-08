@@ -671,13 +671,12 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
   welcome
   < /p>
 
-{/* CTA button */ }
-{
-  showButton && (
-    <div className="reveal-buttons" style = {{ width: '100%', maxWidth: 280 }
-}>
-  <button
-            onClick={ onContinue }
+{/* CTA button — space always reserved to prevent layout jump */}
+<div style={{ width: '100%', maxWidth: 280, minHeight: 56 }}>
+  {showButton && (
+    <div className="reveal-buttons">
+      <button
+            onClick={onContinue}
 style = {{
   width: '100%',
     background: 'linear-gradient(135deg, rgba(180,150,55,.25), rgba(212,175,55,.15))',
@@ -705,8 +704,9 @@ onMouseLeave = { e => {
           >
   View my seat on the map ✦
 </button>
-  < /div>
-      )}
+    </div>
+  )}
+</div>
 </div>
   );
 }
@@ -727,6 +727,26 @@ export default function GuestPage({ eventId }: GuestPageProps) {
   const [loadError, setLoadError] = useState('');
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Request fullscreen on first user interaction to hide browser UI
+  useEffect(() => {
+    const tryFullscreen = () => {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if ((el as any).webkitRequestFullscreen) {
+        (el as any).webkitRequestFullscreen();
+      }
+      document.removeEventListener('touchstart', tryFullscreen);
+      document.removeEventListener('click', tryFullscreen);
+    };
+    document.addEventListener('touchstart', tryFullscreen, { once: true });
+    document.addEventListener('click', tryFullscreen, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', tryFullscreen);
+      document.removeEventListener('click', tryFullscreen);
+    };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -813,7 +833,7 @@ if (loadError || !event) return (
 
 // REVEAL — nueva pantalla de presentación
 if (phase === 'reveal' && foundGuest) return (
-  <div className= "guest-root fade-in" style = {{ minHeight: '100vh', position: 'relative' }}>
+  <div className= "guest-root fade-in" style = {{ height: '100vh', overflow: 'hidden', position: 'relative' }}>
     <style>{ styles } < /style>
     < div className = "aurora-bg" />
       <StarField />

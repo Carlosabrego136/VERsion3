@@ -64,8 +64,8 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Obtener el stream del canvas con framerate alto
-      const stream = captureCanvas.captureStream(60);
+      // Obtener el stream del canvas con 30fps
+      const stream = captureCanvas.captureStream(30);
 
       // Elegir el mejor formato disponible — mp4 nativo > webm (renombrado a mp4)
       const mp4Types = [
@@ -92,7 +92,7 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         }
       }
 
-      const recorderOptions: MediaRecorderOptions = { videoBitsPerSecond: 5000000 };
+      const recorderOptions: MediaRecorderOptions = { videoBitsPerSecond: 8000000 };
       if (chosenMime) recorderOptions.mimeType = chosenMime;
 
       const mediaRecorder = new MediaRecorder(stream, recorderOptions);
@@ -122,65 +122,61 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         setRecordingProgress(0);
       };
 
-      mediaRecorder.start(50);
+      mediaRecorder.start(100);
 
-      // Pre-cargar html2canvas
+      // Pre-render static overlay (background, texts, QR) once with html2canvas
+      // Then composite with live animation canvas every frame — smooth 30fps
       const html2canvas = (await import('html2canvas')).default;
+
+      // Temporarily hide animation canvas to get clean static snapshot
+      const animCanvas = canvasRef.current.querySelector('canvas') as HTMLCanvasElement | null;
+      if (animCanvas) animCanvas.style.opacity = '0';
+
+      const overlaySnapshot = await html2canvas(canvasRef.current, {
+        backgroundColor: '#000000',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        imageTimeout: 0,
+      });
+
+      if (animCanvas) animCanvas.style.opacity = '1';
+
+      const OW = captureCanvas.width;
+      const OH = captureCanvas.height;
+      const fitScale = Math.min(OW / overlaySnapshot.width, OH / overlaySnapshot.height);
+      const ox = (OW - overlaySnapshot.width * fitScale) / 2;
+      const oy = (OH - overlaySnapshot.height * fitScale) / 2;
+      const dw = overlaySnapshot.width * fitScale;
+      const dh = overlaySnapshot.height * fitScale;
 
       const duration = 10000;
       const startTime = Date.now();
-      const frameInterval = 1000 / 24; // 24 FPS para captura
-      let lastFrameTime = 0;
 
-      const captureFrame = async (currentTime: number) => {
-        if (!canvasRef.current) return;
-
+      const drawFrame = () => {
         const elapsed = Date.now() - startTime;
+        setRecordingProgress(Math.min((elapsed / duration) * 100, 100));
 
-        // Limitar la frecuencia de captura
-        if (currentTime - lastFrameTime < frameInterval) {
-          if (elapsed < duration && mediaRecorderRef.current?.state === 'recording') {
-            animationFrameRef.current = requestAnimationFrame(captureFrame);
-          }
-          return;
-        }
-        lastFrameTime = currentTime;
+        // 1. Static background + overlay (texts, QR, etc.)
+        ctx.drawImage(overlaySnapshot, ox, oy, dw, dh);
 
-        const progress = Math.min((elapsed / duration) * 100, 100);
-        setRecordingProgress(progress);
-
-        try {
-          const screenshot = await html2canvas(canvasRef.current, {
-            backgroundColor: '#000000',
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            imageTimeout: 0,
-          });
-
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(0, 0, captureCanvas.width, captureCanvas.height);
-
-          const scaleX = captureCanvas.width / screenshot.width;
-          const scaleY = captureCanvas.height / screenshot.height;
-          const scale = Math.min(scaleX, scaleY);
-          const x = (captureCanvas.width - screenshot.width * scale) / 2;
-          const y = (captureCanvas.height - screenshot.height * scale) / 2;
-
-          ctx.drawImage(screenshot, x, y, screenshot.width * scale, screenshot.height * scale);
-        } catch (e) {
-          // Ignorar errores de frames individuales
+        // 2. Live animation canvas composited on top
+        if (animCanvas && animCanvas.width > 0) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.drawImage(animCanvas, ox, oy, dw, dh);
+          ctx.restore();
         }
 
         if (elapsed < duration && mediaRecorderRef.current?.state === 'recording') {
-          animationFrameRef.current = requestAnimationFrame(captureFrame);
+          animationFrameRef.current = requestAnimationFrame(drawFrame);
         } else if (mediaRecorderRef.current?.state === 'recording') {
           mediaRecorder.stop();
         }
       };
 
-      animationFrameRef.current = requestAnimationFrame(captureFrame);
+      animationFrameRef.current = requestAnimationFrame(drawFrame);
 
     } catch (err) {
       console.error('Error al grabar:', err);
