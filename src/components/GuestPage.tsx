@@ -105,18 +105,63 @@ const styles = `
     65%  { opacity:1; transform:scale(1.12); filter:blur(0); }
     100% { opacity:1; transform:scale(1); }
   }
+  /* Light sweep across the circle */
+  @keyframes lightSweep {
+    0%   { transform: rotate(-60deg) translateX(-120px); opacity:0; }
+    15%  { opacity:.55; }
+    85%  { opacity:.55; }
+    100% { transform: rotate(-60deg) translateX(120px); opacity:0; }
+  }
+  /* Particle orbit around the circle */
+  @keyframes orbitDot {
+    from { transform: rotate(var(--start)) translateX(100px) rotate(calc(-1 * var(--start))); }
+    to   { transform: rotate(calc(var(--start) + 360deg)) translateX(100px) rotate(calc(-1 * (var(--start) + 360deg))); }
+  }
+  /* Particle fade in then maintain */
+  @keyframes particleFade {
+    0%   { opacity:0; transform:scale(0); }
+    30%  { opacity:var(--max-op); transform:scale(1); }
+    70%  { opacity:var(--max-op); }
+    100% { opacity:calc(var(--max-op) * 0.4); transform:scale(0.7); }
+  }
+  /* Name shimmer */
+  @keyframes nameShimmer {
+    0%   { opacity:0; transform:translateY(20px); filter:blur(8px); }
+    60%  { opacity:1; transform:translateY(0); filter:blur(0); }
+    100% { opacity:1; transform:translateY(0); filter:blur(0); }
+  }
+  /* Subtle shimmer pass on name */
+  @keyframes textGlow {
+    0%,100% { filter: drop-shadow(0 0 0px rgba(212,175,55,0)); }
+    50%      { filter: drop-shadow(0 0 8px rgba(212,175,55,.35)); }
+  }
+  /* Outer ring pulse opacity */
+  @keyframes ringBreath {
+    0%,100% { opacity:.3; }
+    50%      { opacity:.7; }
+  }
   .reveal-table-num {
     animation: circleEntrance 1.1s cubic-bezier(.22,.9,.36,1) 0.3s both,
                pulseGold 3.5s ease-in-out 1.6s infinite;
   }
   .reveal-table-num .ring-outer {
-    animation: spinRingSlow 12s linear infinite;
+    animation: spinRingSlow 12s linear infinite, ringBreath 3s ease-in-out infinite;
   }
   .reveal-table-num .ring-inner {
     animation: spinRingReverse 8s linear infinite;
   }
   .reveal-table-num .num-text {
     animation: numberPop 0.7s cubic-bezier(.22,.9,.36,1) 0.9s both;
+  }
+  .reveal-table-num .light-sweep {
+    animation: lightSweep 2.2s ease-in-out 1.2s both;
+  }
+  .orbit-dot {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: orbitDot var(--dur) linear var(--delay) infinite,
+               particleFade 1.2s ease var(--delay) both;
   }
   .reveal-label {
     animation: revealLabel 0.7s ease 1.1s both;
@@ -126,7 +171,10 @@ const styles = `
     transform-origin: center;
   }
   .reveal-name {
-    animation: revealName 0.8s ease 2.1s both;
+    animation: nameShimmer 0.9s cubic-bezier(.22,.9,.36,1) 2.1s both;
+  }
+  .reveal-name h1 {
+    animation: textGlow 3s ease-in-out 3.2s infinite;
   }
   .reveal-subtitle {
     animation: revealSubtitle 0.6s ease 2.7s both;
@@ -485,27 +533,54 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
     < /p>
 
 {/* Big table number */ }
+<div style={ { position: 'relative', marginBottom: 28, width: 172, height: 172 } }>
+
+  {/* Orbiting particles around the circle */ }
+{
+  [
+    { start: '0deg', dur: '6s', delay: '1.4s', size: 4, op: '.7' },
+    { start: '72deg', dur: '8s', delay: '1.7s', size: 3, op: '.5' },
+    { start: '144deg', dur: '7s', delay: '2.0s', size: 5, op: '.6' },
+    { start: '216deg', dur: '9s', delay: '1.5s', size: 3, op: '.4' },
+    { start: '288deg', dur: '6.5s', delay: '2.2s', size: 4, op: '.55' },
+    { start: '36deg', dur: '11s', delay: '1.9s', size: 2.5, op: '.35' },
+    { start: '180deg', dur: '10s', delay: '2.4s', size: 2.5, op: '.3' },
+  ].map((p, i) => (
+    <div key= { i } className = "orbit-dot" style = {{
+      width: p.size, height: p.size,
+      background: i % 2 === 0 ? '#d4af37' : 'rgba(180,210,255,.9)',
+      top: '50%', left: '50%',
+      marginTop: -p.size / 2, marginLeft: -p.size / 2,
+      boxShadow: i % 2 === 0
+        ? `0 0 ${p.size * 2}px rgba(212,175,55,.8)`
+        : `0 0 ${p.size * 2}px rgba(140,180,255,.6)`,
+      '--start': p.start,
+      '--dur': p.dur,
+      '--delay': p.delay,
+      '--max-op': p.op,
+    } as React.CSSProperties} />
+        ))}
+
 <div className="reveal-table-num" style = {{
   width: 172, height: 172, borderRadius: '50%',
     background: 'radial-gradient(circle at 38% 32%, rgba(212,175,55,.22) 0%, rgba(8,18,55,.92) 55%, rgba(4,10,35,.98) 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 28,
-          position: 'relative',
-            backdropFilter: 'blur(14px)',
-      }}>
+        position: 'relative', overflow: 'hidden',
+          backdropFilter: 'blur(14px)',
+        }}>
   {/* Outer spinning dashed ring */ }
   < div className = "ring-outer" style = {{
   position: 'absolute', inset: -6, borderRadius: '50%',
     border: '1.5px dashed rgba(212,175,55,.3)',
       pointerEvents: 'none',
-        }} />
+          }} />
 {/* Main border */ }
 <div style={
   {
     position: 'absolute', inset: 0, borderRadius: '50%',
       border: '2px solid rgba(212,175,55,.55)',
         pointerEvents: 'none',
-        }
+          }
 } />
 {/* Inner spinning ring */ }
 <div className="ring-inner" style = {{
@@ -513,15 +588,25 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
     border: '1px solid rgba(212,175,55,.18)',
       borderTopColor: 'rgba(212,175,55,.5)',
         pointerEvents: 'none',
-        }} />
+          }} />
 {/* Innermost subtle ring */ }
 <div style={
   {
     position: 'absolute', inset: 18, borderRadius: '50%',
       border: '1px solid rgba(212,175,55,.08)',
         pointerEvents: 'none',
-        }
+          }
 } />
+{/* Light sweep — diagonal shine that passes once */ }
+<div className="light-sweep" style = {{
+  position: 'absolute',
+    top: '-20%', left: '50%',
+      width: 28, height: '140%',
+        background: 'linear-gradient(180deg, transparent 0%, rgba(255,240,180,.45) 40%, rgba(255,255,255,.25) 50%, rgba(255,240,180,.45) 60%, transparent 100%)',
+          borderRadius: 12,
+            pointerEvents: 'none',
+              zIndex: 2,
+          }} />
 {/* Number */ }
 <span className="num-text" style = {{
   fontFamily: 'Cormorant Garamond, serif',
@@ -533,11 +618,12 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
               backgroundClip: 'text',
                 lineHeight: 1,
                   letterSpacing: '-0.02em',
-                    position: 'relative', zIndex: 1,
+                    position: 'relative', zIndex: 3,
                       filter: 'drop-shadow(0 2px 12px rgba(212,175,55,.4))',
-        }}>
+          }}>
   { table?.label || '—'}
 </span>
+  < /div>
   < /div>
 
 {/* Divider line */ }
