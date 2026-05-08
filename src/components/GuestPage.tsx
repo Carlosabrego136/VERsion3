@@ -51,6 +51,66 @@ const styles = `
   .ornament::before,.ornament::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(180,150,55,.3)); }
   .ornament::after { background:linear-gradient(90deg,rgba(180,150,55,.3),transparent); }
   label.field-label { display:block; font-size:10px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:rgba(140,170,255,.6); margin-bottom:8px; }
+
+  /* ── REVEAL ANIMATION ── */
+  @keyframes revealTableNum {
+    0%   { opacity:0; transform:scale(0.4) translateY(30px); filter:blur(12px); }
+    60%  { opacity:1; transform:scale(1.08) translateY(-4px); filter:blur(0); }
+    100% { opacity:1; transform:scale(1) translateY(0); filter:blur(0); }
+  }
+  @keyframes revealLabel {
+    0%   { opacity:0; letter-spacing:.6em; transform:translateY(8px); }
+    100% { opacity:1; letter-spacing:.22em; transform:translateY(0); }
+  }
+  @keyframes revealName {
+    0%   { opacity:0; transform:translateY(24px); filter:blur(6px); }
+    100% { opacity:1; transform:translateY(0); filter:blur(0); }
+  }
+  @keyframes revealLine {
+    0%   { transform:scaleX(0); opacity:0; }
+    100% { transform:scaleX(1); opacity:1; }
+  }
+  @keyframes revealSubtitle {
+    0%   { opacity:0; transform:translateY(10px); }
+    100% { opacity:1; transform:translateY(0); }
+  }
+  @keyframes revealButtons {
+    0%   { opacity:0; transform:translateY(14px); }
+    100% { opacity:1; transform:translateY(0); }
+  }
+  @keyframes pulseGold {
+    0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0), 0 0 60px rgba(212,175,55,.08); }
+    50%      { box-shadow: 0 0 0 18px rgba(212,175,55,0), 0 0 80px rgba(212,175,55,.18); }
+  }
+  @keyframes orbFloat {
+    0%,100% { transform: translateY(0) scale(1); opacity:.55; }
+    50%      { transform: translateY(-18px) scale(1.06); opacity:.75; }
+  }
+  .reveal-table-num {
+    animation: revealTableNum 0.9s cubic-bezier(.22,.9,.36,1) 0.3s both;
+  }
+  .reveal-label {
+    animation: revealLabel 0.7s ease 1.1s both;
+  }
+  .reveal-line {
+    animation: revealLine 0.6s ease 1.6s both;
+    transform-origin: center;
+  }
+  .reveal-name {
+    animation: revealName 0.8s ease 1.9s both;
+  }
+  .reveal-subtitle {
+    animation: revealSubtitle 0.6s ease 2.5s both;
+  }
+  .reveal-buttons {
+    animation: revealButtons 0.6s ease 3.0s both;
+  }
+  .pulse-gold {
+    animation: pulseGold 3s ease-in-out infinite;
+  }
+  .orb-float {
+    animation: orbFloat 6s ease-in-out infinite;
+  }
 `;
 
 function StarField() {
@@ -75,7 +135,7 @@ function StarField() {
   );
 }
 
-// ── CANVAS MAP ──────────────────────────────────────────────────────────────
+// ── CANVAS MAP ───────────────────────────────────────────────────────────────
 interface CanvasMapProps {
   tables: TableData[];
   markers: LocationMarker[];
@@ -138,7 +198,6 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
     ctx.translate(ox, oy);
     ctx.scale(z, z);
 
-    // Tables
     for (const t of tables) {
       const isMine = t.id === myTableId;
       const x = t.position.x, y = t.position.y;
@@ -149,7 +208,6 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
       ctx.save();
 
       if (isMine) {
-        // Glow
         const glow = 0.5 + 0.5 * Math.sin(glowPhase);
         const grad = ctx.createRadialGradient(x + w2 / 2, y + h2 / 2, 0, x + w2 / 2, y + h2 / 2, Math.max(w2, h2));
         grad.addColorStop(0, `rgba(212,175,55,${0.15 + glow * 0.12})`);
@@ -161,19 +219,16 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
         ctx.fill();
       }
 
-      // Fill
       ctx.beginPath();
       if (isRound) { ctx.ellipse(x + w2 / 2, y + h2 / 2, w2 / 2, h2 / 2, 0, 0, Math.PI * 2); }
       else { ctx.roundRect(x, y, w2, h2, r); }
       ctx.fillStyle = isMine ? 'rgba(212,175,55,0.18)' : 'rgba(10,30,80,0.75)';
       ctx.fill();
 
-      // Border
       ctx.strokeStyle = isMine ? `rgba(212,175,55,${0.7 + 0.3 * Math.sin(glowPhase)})` : 'rgba(80,130,255,0.28)';
       ctx.lineWidth = isMine ? 2 : 1;
       ctx.stroke();
 
-      // Label
       ctx.fillStyle = isMine ? '#d4af37' : 'rgba(140,170,255,0.8)';
       ctx.font = `700 ${Math.round(10 / z * z)}px Montserrat, sans-serif`;
       ctx.textAlign = 'center';
@@ -189,7 +244,6 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
       ctx.restore();
     }
 
-    // Markers
     for (const m of markers) {
       ctx.save();
       ctx.font = '14px serif';
@@ -232,7 +286,6 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
     return () => cancelAnimationFrame(frame);
   }, [draw]);
 
-  // Center on my table on mount
   useEffect(() => {
     const myTable = tables.find(t => t.id === myTableId);
     if (myTable && containerRef.current) {
@@ -273,14 +326,8 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
     setZoom(newZ);
   };
 
-  const zoomIn = () => {
-    const newZ = Math.min(2, stateRef.current.zoom + 0.15);
-    stateRef.current.zoom = newZ; setZoom(newZ);
-  };
-  const zoomOut = () => {
-    const newZ = Math.max(0.2, stateRef.current.zoom - 0.15);
-    stateRef.current.zoom = newZ; setZoom(newZ);
-  };
+  const zoomIn = () => { const newZ = Math.min(2, stateRef.current.zoom + 0.15); stateRef.current.zoom = newZ; setZoom(newZ); };
+  const zoomOut = () => { const newZ = Math.max(0.2, stateRef.current.zoom - 0.15); stateRef.current.zoom = newZ; setZoom(newZ); };
 
   const handleCenter = () => {
     const myTable = tables.find(t => t.id === myTableId);
@@ -309,19 +356,17 @@ onWheel = { handleWheel }
   >
   <canvas ref={ canvasRef } style = {{ display: 'block', width: '100%', height: '100%' }} />
 
-{/* Zoom buttons */ }
-<div style={ { position: 'absolute', bottom: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 20 } }>
-{
-  [{ l: '+', fn: zoomIn }, { l: '−', fn: zoomOut }].map(b => (
-    <button key= { b.l } className = "map-btn" onClick = { b.fn } style = {{
-    width: 44, height: 44, fontSize: 20, fontWeight: 300, borderRadius: 12,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  }} > { b.l } < /button>
+    < div style = {{ position: 'absolute', bottom: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 20 }}>
+    {
+      [{ l: '+', fn: zoomIn }, { l: '−', fn: zoomOut }].map(b => (
+        <button key= { b.l } className = "map-btn" onClick = { b.fn } style = {{
+        width: 44, height: 44, fontSize: 20, fontWeight: 300, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }} > { b.l } < /button>
         ))}
 </div>
 
-{/* Fullscreen toggle */ }
-<button className="map-btn" onClick = { onToggleFullscreen } style = {{
+  < button className = "map-btn" onClick = { onToggleFullscreen } style = {{
   position: 'absolute', top: 12, right: 12, zIndex: 20,
     fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
       padding: '8px 14px', borderRadius: 10,
@@ -329,8 +374,7 @@ onWheel = { handleWheel }
   { fullscreen? '✕ Cerrar': '⛶ Expandir' }
   < /button>
 
-{/* Center my table */ }
-<button onClick={ handleCenter } style = {{
+  < button onClick = { handleCenter } style = {{
   position: 'absolute', top: 12, left: 12, zIndex: 20,
     background: 'linear-gradient(135deg,rgba(180,150,55,.2),rgba(150,120,40,.15))',
       border: '1px solid rgba(212,175,55,.4)', color: '#d4af37',
@@ -339,20 +383,170 @@ onWheel = { handleWheel }
             padding: '8px 14px', borderRadius: 10, cursor: 'pointer', backdropFilter: 'blur(10px)',
       }}>✦ Mi mesa < /button>
 
-{/* Zoom % */ }
-<div style={
-  {
-    position: 'absolute', bottom: 16, left: 16, zIndex: 20,
-      background: 'rgba(8,20,55,.7)', border: '1px solid rgba(80,130,255,.15)',
-        color: 'rgba(140,170,255,.5)', fontSize: 10, letterSpacing: '0.1em',
-          padding: '5px 10px', borderRadius: 8,
-      }
-}> { Math.round(zoom * 100) } % </div>
+  < div style = {{
+  position: 'absolute', bottom: 16, left: 16, zIndex: 20,
+    background: 'rgba(8,20,55,.7)', border: '1px solid rgba(80,130,255,.15)',
+      color: 'rgba(140,170,255,.5)', fontSize: 10, letterSpacing: '0.1em',
+        padding: '5px 10px', borderRadius: 8,
+      }}> { Math.round(zoom * 100) } % </div>
   < /div>
   );
 }
 
-// ── MAIN COMPONENT ───────────────────────────────────────────────────────────
+// ── REVEAL SCREEN ────────────────────────────────────────────────────────────
+interface RevealScreenProps {
+  guest: GuestData;
+  table: TableData | null;
+  eventName: string;
+  onContinue: () => void;
+}
+
+function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps) {
+  const [showButton, setShowButton] = useState(false);
+
+  useEffect(() => {
+    // Show button after full animation sequence (~3.6s)
+    const t = setTimeout(() => setShowButton(true), 3200);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div style= {{
+    position: 'fixed', inset: 0, zIndex: 10,
+      display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+          padding: '24px 20px',
+            background: 'transparent',
+    }
+}>
+  {/* Decorative orbs */ }
+  < div className = "orb-float" style = {{
+  position: 'absolute', top: '15%', left: '10%',
+    width: 180, height: 180, borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(212,175,55,.12) 0%, transparent 70%)',
+        pointerEvents: 'none',
+          animationDelay: '0s',
+      }} />
+  < div className = "orb-float" style = {{
+  position: 'absolute', bottom: '18%', right: '8%',
+    width: 140, height: 140, borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(80,130,255,.1) 0%, transparent 70%)',
+        pointerEvents: 'none',
+          animationDelay: '2s',
+      }} />
+
+{/* Event name */ }
+<p className="reveal-label" style = {{
+  fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
+    color: 'rgba(180,150,55,.65)', marginBottom: 32, textAlign: 'center',
+      }}>
+        ✦ { eventName } ✦
+</p>
+
+{/* Mesa label */ }
+<p style={
+  {
+    fontSize: 11, letterSpacing: '.35em', textTransform: 'uppercase',
+      color: 'rgba(140,170,255,.45)', marginBottom: 12, textAlign: 'center',
+        opacity: 0,
+          animation: 'revealSubtitle 0.6s ease 0.1s both',
+      }
+}>
+  tu mesa es
+    < /p>
+
+{/* Big table number */ }
+<div className="reveal-table-num pulse-gold" style = {{
+  width: 160, height: 160, borderRadius: '50%',
+    border: '2px solid rgba(212,175,55,.45)',
+      background: 'radial-gradient(circle at 40% 35%, rgba(212,175,55,.18) 0%, rgba(10,25,70,.8) 60%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 28,
+            position: 'relative',
+              backdropFilter: 'blur(10px)',
+      }}>
+  {/* Inner ring */ }
+  < div style = {{
+  position: 'absolute', inset: 8, borderRadius: '50%',
+    border: '1px solid rgba(212,175,55,.2)',
+        }} />
+  < span style = {{
+  fontFamily: 'Cormorant Garamond, serif',
+    fontWeight: 300,
+      fontSize: table?.label && table.label.length > 3 ? 'clamp(2.5rem,12vw,4rem)' : 'clamp(3.5rem,16vw,5.5rem)',
+        background: 'linear-gradient(145deg, #f5e090 0%, #d4af37 45%, #a07c20 100%)',
+          WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+                lineHeight: 1,
+                  letterSpacing: '-0.02em',
+        }}>
+  { table?.label || '—'}
+</span>
+  < /div>
+
+{/* Divider line */ }
+<div className="reveal-line gold-line" style = {{ width: '60%', maxWidth: 200, marginBottom: 28 }} />
+
+{/* Guest name */ }
+<div className="reveal-name" style = {{ textAlign: 'center', marginBottom: 10 }}>
+  <h1 className="guest-name" style = {{
+  fontSize: 'clamp(1.8rem,7vw,2.8rem)',
+    margin: 0,
+        }}>
+  { guest.name } { guest.surname }
+</h1>
+  < /div>
+
+{/* Bienvenido */ }
+<p className="reveal-subtitle" style = {{
+  fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase',
+    color: 'rgba(140,170,255,.4)', marginBottom: 44, textAlign: 'center',
+      }}>
+  bienvenido · welcome
+    < /p>
+
+{/* CTA button */ }
+{
+  showButton && (
+    <div className="reveal-buttons" style = {{ width: '100%', maxWidth: 280 }
+}>
+  <button
+            onClick={ onContinue }
+style = {{
+  width: '100%',
+    background: 'linear-gradient(135deg, rgba(180,150,55,.25), rgba(212,175,55,.15))',
+      border: '1px solid rgba(212,175,55,.5)',
+        color: '#d4af37',
+          fontFamily: 'Montserrat, sans-serif',
+            fontWeight: 500,
+              fontSize: 12,
+                letterSpacing: '.14em',
+                  textTransform: 'uppercase',
+                    padding: '15px 28px',
+                      borderRadius: 12,
+                        cursor: 'pointer',
+                          backdropFilter: 'blur(10px)',
+                            transition: 'all .3s ease',
+            }}
+onMouseEnter = { e => {
+  (e.target as HTMLElement).style.background = 'linear-gradient(135deg, rgba(212,175,55,.35), rgba(180,150,55,.25))';
+  (e.target as HTMLElement).style.borderColor = 'rgba(212,175,55,.8)';
+}}
+onMouseLeave = { e => {
+  (e.target as HTMLElement).style.background = 'linear-gradient(135deg, rgba(180,150,55,.25), rgba(212,175,55,.15))';
+  (e.target as HTMLElement).style.borderColor = 'rgba(212,175,55,.5)';
+}}
+          >
+  Ver mi lugar en el mapa ✦
+</button>
+  < /div>
+      )}
+</div>
+  );
+}
+
+// ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export default function GuestPage({ eventId }: GuestPageProps) {
   const [event, setEvent] = useState<EventData | null>(null);
   const [tables, setTables] = useState<TableData[]>([]);
@@ -362,7 +556,8 @@ export default function GuestPage({ eventId }: GuestPageProps) {
   const [searchSurname, setSearchSurname] = useState('');
   const [foundGuest, setFoundGuest] = useState<GuestData | null>(null);
   const [foundTable, setFoundTable] = useState<TableData | null>(null);
-  const [phase, setPhase] = useState<'loading' | 'search' | 'media' | 'map'>('loading');
+  // Nueva fase: 'reveal' entre búsqueda y mapa
+  const [phase, setPhase] = useState<'loading' | 'search' | 'reveal' | 'media' | 'map'>('loading');
   const [searching, setSearching] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [mapFullscreen, setMapFullscreen] = useState(false);
@@ -395,12 +590,22 @@ export default function GuestPage({ eventId }: GuestPageProps) {
         setFoundGuest(found);
         const table = tables.find(t => t.id === found.tableId) || null;
         setFoundTable(table);
-        setPhase(table?.videoUrl ? 'media' : 'map');
+        // Siempre va a reveal primero
+        setPhase('reveal');
       } else {
         alert('No se encontró ese nombre. Verifica nombre y apellido.');
       }
     } catch { alert('Error al buscar.'); }
     setSearching(false);
+  };
+
+  // Después del reveal, decide si va a media o mapa
+  const handleRevealContinue = () => {
+    if (foundTable?.videoUrl) {
+      setPhase('media');
+    } else {
+      setPhase('map');
+    }
   };
 
   const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(url);
@@ -441,6 +646,21 @@ if (loadError || !event) return (
             < /div>
   );
 
+// REVEAL — nueva pantalla de presentación
+if (phase === 'reveal' && foundGuest) return (
+  <div className= "guest-root fade-in" style = {{ minHeight: '100vh', position: 'relative' }}>
+    <style>{ styles } < /style>
+    < div className = "aurora-bg" />
+      <StarField />
+      < RevealScreen
+guest = { foundGuest }
+table = { foundTable }
+eventName = { event.name }
+onContinue = { handleRevealContinue }
+  />
+  </div>
+  );
+
 // MEDIA
 if (phase === 'media' && foundTable?.videoUrl) {
   const url = foundTable.videoUrl;
@@ -462,7 +682,7 @@ if (phase === 'media' && foundTable?.videoUrl) {
                 < div className = "media-container fade-in-up" style = {{ animationDelay: '.15s', flex: 1 }}>
                 {
                   embedUrl?(
-              <div style = {{ position:'relative', paddingBottom:'177.78%', height:0 }} >
+              <div style = {{ position: 'relative', paddingBottom: '177.78%', height: 0 }} >
                   <iframe src={ embedUrl } style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow = "autoplay; fullscreen; picture-in-picture" allowFullScreen />
                     </div>
             ) : isImg ? (
