@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { TableData, GuestData } from '../types';
-import { generateId, saveTable, deleteTable, getTables, getGuests, getEvent, saveEvent } from '../store';
+import { generateId, saveTable, deleteTable, getTables, getGuests, getEvent, saveEvent, findTableByLabel } from '../store';
 import { EventData } from '../types';
 
 interface TableMapEditorProps {
@@ -66,16 +66,23 @@ export default function TableMapEditor({ eventId }: TableMapEditorProps) {
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     const xPct = ((e.clientX - rect.left) / rect.width) * 100;
     const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    const t: TableData = {
-      id: generateId(),
-      eventId,
-      label: newTableLabel.trim(),
-      shape: 'round',
-      position: { x: xPct, y: yPct },
-      size: { width: 80, height: 80 },
-      videoUrl: '',
-      videoType: '',
-    };
+
+    // Buscar si ya existe una mesa con ese label (creada desde Invitados)
+    const existing = await findTableByLabel(eventId, newTableLabel.trim());
+
+    const t: TableData = existing
+      ? { ...existing, position: { x: xPct, y: yPct } }  // reusar la misma mesa, solo mover posición
+      : {
+        id: generateId(),
+        eventId,
+        label: newTableLabel.trim(),
+        shape: 'round',
+        position: { x: xPct, y: yPct },
+        size: { width: 80, height: 80 },
+        videoUrl: '',
+        videoType: '',
+      };
+
     await saveTable(t);
     setNewTableLabel('');
     setPlacingMode(false);
