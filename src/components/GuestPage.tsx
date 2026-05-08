@@ -212,6 +212,19 @@ function StarField() {
   );
 }
 
+// ── SAFARI COMPAT: roundRect polyfill ────────────────────────────────────────
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  if (w < 2 * r) r = w / 2;
+  if (h < 2 * r) r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 // ── CANVAS MAP ───────────────────────────────────────────────────────────────
 interface CanvasMapProps {
   tables: TableData[];
@@ -291,14 +304,14 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
         grad.addColorStop(1, 'rgba(212,175,55,0)');
         ctx.beginPath();
         if (isRound) { ctx.ellipse(x + w2 / 2, y + h2 / 2, w2 / 2 + 14, h2 / 2 + 14, 0, 0, Math.PI * 2); }
-        else { ctx.roundRect(x - 10, y - 10, w2 + 20, h2 + 20, r + 4); }
+        else { roundRect(ctx, x - 10, y - 10, w2 + 20, h2 + 20, r + 4); }
         ctx.fillStyle = grad;
         ctx.fill();
       }
 
       ctx.beginPath();
       if (isRound) { ctx.ellipse(x + w2 / 2, y + h2 / 2, w2 / 2, h2 / 2, 0, 0, Math.PI * 2); }
-      else { ctx.roundRect(x, y, w2, h2, r); }
+      else { roundRect(ctx, x, y, w2, h2, r); }
       ctx.fillStyle = isMine ? 'rgba(212,175,55,0.18)' : 'rgba(10,30,80,0.75)';
       ctx.fill();
 
@@ -338,7 +351,7 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
       ctx.strokeStyle = 'rgba(80,130,255,0.22)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(m.position.x, m.position.y, bw, bh, 12);
+      roundRect(ctx, m.position.x, m.position.y, bw, bh, 12);
       ctx.fill(); ctx.stroke();
 
       ctx.fillText(emoji, m.position.x + padX, m.position.y + bh / 2);
