@@ -634,7 +634,7 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 <span className="num-text" style = {{
   fontFamily: 'Montserrat, sans-serif',
     fontWeight: 600,
-      fontSize: table?.label && table.label.length > 3 ? 'clamp(2rem,10vw,3.2rem)' : 'clamp(3.2rem,15vw,5rem)',
+      fontSize: table?.label && table.label.replace(/^(mesa|table)\s*/i, '').length > 3 ? 'clamp(2rem,10vw,3.2rem)' : 'clamp(3.2rem,15vw,5rem)',
         background: 'linear-gradient(160deg, #fff8dc 0%, #f5e090 25%, #d4af37 55%, #a07c20 100%)',
           WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -645,8 +645,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
                       textAlign: 'center',
                         filter: 'drop-shadow(0 2px 12px rgba(212,175,55,.4))',
           }}>
-  { table?.label || '—'}
-</span>
+  { table?.label? table.label.replace(/^(mesa|table)\s*/i, '') : '—'}
+  < /span>
   < /div>
   < /div>
 
