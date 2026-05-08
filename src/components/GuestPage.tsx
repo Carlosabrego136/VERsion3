@@ -378,14 +378,24 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
 
   useEffect(() => {
     const myTable = tables.find(t => t.id === myTableId);
-    if (myTable && containerRef.current) {
-      const cw = containerRef.current.clientWidth;
-      const ch = containerRef.current.clientHeight;
-      stateRef.current.zoom = 0.8;
-      stateRef.current.ox = cw / 2 - (myTable.position.x + myTable.size.width / 2) * 0.8;
-      stateRef.current.oy = ch / 2 - (myTable.position.y + myTable.size.height / 2) * 0.8;
-      setZoom(0.8);
-    }
+    if (!myTable || !containerRef.current) return;
+
+    const center = () => {
+      const cw = containerRef.current?.clientWidth || 0;
+      const ch = containerRef.current?.clientHeight || 0;
+      if (cw === 0 || ch === 0) {
+        setTimeout(center, 50);
+        return;
+      }
+      const z = 0.8;
+      stateRef.current.zoom = z;
+      stateRef.current.ox = cw / 2 - (myTable.position.x + myTable.size.width / 2) * z;
+      stateRef.current.oy = ch / 2 - (myTable.position.y + myTable.size.height / 2) * z;
+      setZoom(z);
+    };
+
+    // Delay to let iOS Safari finish painting the layout before reading dimensions
+    setTimeout(center, 100);
   }, [tables, myTableId]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -457,9 +467,9 @@ onWheel = { handleWheel }
 </div>
 
   < button className = "map-btn" onClick = { onToggleFullscreen } style = {{
-  position: 'absolute', top: 12, right: 12, zIndex: 20,
+  position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
     fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
-      padding: '8px 14px', borderRadius: 10,
+      padding: '8px 18px', borderRadius: 10, whiteSpace: 'nowrap',
       }}>
   { fullscreen? '✕ Cerrar': '⛶ Expandir' }
   < /button>
@@ -622,17 +632,18 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
           }} />
 {/* Number */ }
 <span className="num-text" style = {{
-  fontFamily: 'Cormorant Garamond, serif',
-    fontWeight: 300,
-      fontSize: table?.label && table.label.length > 3 ? 'clamp(2.5rem,12vw,4rem)' : 'clamp(3.8rem,17vw,5.8rem)',
+  fontFamily: 'Montserrat, sans-serif',
+    fontWeight: 600,
+      fontSize: table?.label && table.label.length > 3 ? 'clamp(2rem,10vw,3.2rem)' : 'clamp(3.2rem,15vw,5rem)',
         background: 'linear-gradient(160deg, #fff8dc 0%, #f5e090 25%, #d4af37 55%, #a07c20 100%)',
           WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
                 lineHeight: 1,
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '0em',
                     position: 'relative', zIndex: 3,
-                      filter: 'drop-shadow(0 2px 12px rgba(212,175,55,.4))',
+                      textAlign: 'center',
+                        filter: 'drop-shadow(0 2px 12px rgba(212,175,55,.4))',
           }}>
   { table?.label || '—'}
 </span>
