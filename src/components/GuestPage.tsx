@@ -6,18 +6,18 @@ interface GuestPageProps { eventId: string; }
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
-  .guest-root { font-family:'Montserrat',sans-serif; background:#050a15; min-height:100vh; color:#e8f0fe; }
+  .guest-root { font-family:'Montserrat',sans-serif; background:#071428; min-height:100vh; color:#ddeeff; }
   .aurora-bg { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
   .aurora-bg::before {
     content:''; position:absolute; width:120%; height:120%; top:-10%; left:-10%;
-    background:radial-gradient(ellipse 80% 60% at 20% 20%,rgba(14,60,120,.55) 0%,transparent 60%),
-               radial-gradient(ellipse 60% 80% at 80% 80%,rgba(6,30,80,.5) 0%,transparent 60%);
+    background:radial-gradient(ellipse 80% 60% at 20% 20%,rgba(30,100,200,.6) 0%,transparent 60%),
+               radial-gradient(ellipse 60% 80% at 80% 80%,rgba(20,80,180,.5) 0%,transparent 60%);
     animation:auroraA 18s ease-in-out infinite alternate;
   }
   .aurora-bg::after {
     content:''; position:absolute; inset:0;
-    background:radial-gradient(ellipse 40% 30% at 70% 30%,rgba(30,100,200,.18) 0%,transparent 60%),
-               radial-gradient(ellipse 30% 40% at 30% 70%,rgba(10,50,140,.15) 0%,transparent 60%);
+    background:radial-gradient(ellipse 40% 30% at 70% 30%,rgba(60,140,255,.22) 0%,transparent 60%),
+               radial-gradient(ellipse 30% 40% at 30% 70%,rgba(30,100,220,.18) 0%,transparent 60%);
     animation:auroraB 22s ease-in-out infinite alternate;
   }
   @keyframes auroraA { 0%{transform:scale(1) rotate(0deg)} 100%{transform:scale(1.05) rotate(2deg)} }
@@ -26,22 +26,22 @@ const styles = `
   .star { position:absolute; background:white; border-radius:50%; animation:twinkle var(--dur) ease-in-out infinite alternate; opacity:0; }
   @keyframes twinkle { 0%{opacity:0;transform:scale(.8)} 100%{opacity:var(--op);transform:scale(1.2)} }
   .gold-line { height:1px; background:linear-gradient(90deg,transparent,rgba(212,175,55,.6),rgba(212,175,55,.9),rgba(212,175,55,.6),transparent); }
-  .glass-card { background:rgba(10,25,60,.65); border:1px solid rgba(100,150,255,.15); backdrop-filter:blur(20px); box-shadow:0 8px 40px rgba(0,0,0,.4),inset 0 1px 0 rgba(100,150,255,.1); border-radius:20px; }
-  .search-input { background:rgba(6,20,55,.8); border:1px solid rgba(80,130,255,.2); color:#e8f0fe; border-radius:12px; padding:14px 18px; width:100%; font-family:'Montserrat',sans-serif; font-size:14px; font-weight:300; outline:none; transition:all .3s ease; box-sizing:border-box; }
-  .search-input::placeholder { color:rgba(140,170,255,.4); }
+  .glass-card { background:rgba(20,50,110,.6); border:1px solid rgba(120,180,255,.25); backdrop-filter:blur(20px); box-shadow:0 8px 40px rgba(0,0,0,.4),inset 0 1px 0 rgba(120,180,255,.15); border-radius:20px; }
+  .search-input { background:rgba(15,40,100,.7); border:1px solid rgba(100,160,255,.3); color:#ddeeff; border-radius:12px; padding:14px 18px; width:100%; font-family:'Montserrat',sans-serif; font-size:14px; font-weight:300; outline:none; transition:all .3s ease; box-sizing:border-box; }
+  .search-input::placeholder { color:rgba(160,200,255,.5); }
   .search-input:focus { border-color:rgba(180,150,55,.5); box-shadow:0 0 0 3px rgba(180,150,55,.08); }
-  .btn-primary { background:linear-gradient(135deg,#1a4a9e,#0d2d6e,#1a3a8a); border:1px solid rgba(180,150,55,.4); color:#f0d060; font-family:'Montserrat',sans-serif; font-weight:500; font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:14px 28px; border-radius:12px; cursor:pointer; transition:all .3s ease; box-shadow:0 4px 20px rgba(10,30,100,.4); width:100%; }
+  .btn-primary { background:linear-gradient(135deg,#2060c0,#1040a0,#2055b0); border:1px solid rgba(180,150,55,.4); color:#f0d060; font-family:'Montserrat',sans-serif; font-weight:500; font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:14px 28px; border-radius:12px; cursor:pointer; transition:all .3s ease; box-shadow:0 4px 20px rgba(20,60,160,.5); width:100%; }
   .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
-  .btn-ghost { background:rgba(10,25,70,.5); border:1px solid rgba(80,130,255,.2); color:rgba(180,210,255,.7); font-family:'Montserrat',sans-serif; font-weight:400; font-size:12px; letter-spacing:.06em; padding:12px 20px; border-radius:10px; cursor:pointer; transition:all .3s ease; }
+  .btn-ghost { background:rgba(20,50,120,.5); border:1px solid rgba(100,160,255,.3); color:rgba(180,220,255,.85); font-family:'Montserrat',sans-serif; font-weight:400; font-size:12px; letter-spacing:.06em; padding:12px 20px; border-radius:10px; cursor:pointer; transition:all .3s ease; }
   .btn-gold { background:linear-gradient(135deg,rgba(180,150,55,.2),rgba(212,175,55,.15)); border:1px solid rgba(212,175,55,.4); color:#d4af37; font-family:'Montserrat',sans-serif; font-weight:500; font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding:12px 20px; border-radius:10px; cursor:pointer; transition:all .3s ease; }
-  .guest-name { font-family:'Cormorant Garamond',serif; font-weight:300; font-style:italic; font-size:clamp(2rem,8vw,3.2rem); background:linear-gradient(135deg,#a8c4ff 0%,#e8f0fe 40%,#d4af37 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; }
+  .guest-name { font-family:'Cormorant Garamond',serif; font-weight:300; font-style:italic; font-size:clamp(2rem,8vw,3.2rem); background:linear-gradient(135deg,#90c8ff 0%,#ddeeff 40%,#d4af37 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; }
   .table-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(180,150,55,.12); border:1px solid rgba(180,150,55,.3); color:#d4af37; font-size:12px; font-weight:500; letter-spacing:.12em; text-transform:uppercase; padding:6px 16px; border-radius:100px; }
-  .media-container { position:relative; width:100%; border-radius:16px; overflow:hidden; background:#000; box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px rgba(100,150,255,.1); }
+  .media-container { position:relative; width:100%; border-radius:16px; overflow:hidden; background:#000; box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px rgba(120,180,255,.15); }
   .media-container video,.media-container img { width:100%; display:block; max-height:72vh; object-fit:contain; }
-  .map-canvas-wrap { position:relative; border-radius:16px; overflow:hidden; background:#07152e; border:1px solid rgba(80,130,255,.15); box-shadow:0 8px 40px rgba(0,0,0,.5); touch-action:none; }
+  .map-canvas-wrap { position:relative; border-radius:16px; overflow:hidden; background:#0d2040; border:1px solid rgba(100,160,255,.25); box-shadow:0 8px 40px rgba(0,0,0,.5); touch-action:none; }
   .map-fullscreen { position:fixed!important; inset:0!important; border-radius:0!important; z-index:9999!important; }
-  .map-btn { background:rgba(8,20,55,.92); border:1px solid rgba(80,130,255,.25); color:#a0c0ff; font-family:'Montserrat',sans-serif; cursor:pointer; backdrop-filter:blur(10px); }
-  .spinner { width:44px; height:44px; border:2px solid rgba(80,130,255,.15); border-top-color:#d4af37; border-right-color:rgba(80,130,255,.6); border-radius:50%; animation:spin 1s linear infinite; }
+  .map-btn { background:rgba(15,40,100,.92); border:1px solid rgba(100,160,255,.35); color:#90c8ff; font-family:'Montserrat',sans-serif; cursor:pointer; backdrop-filter:blur(10px); }
+  .spinner { width:44px; height:44px; border:2px solid rgba(100,160,255,.2); border-top-color:#d4af37; border-right-color:rgba(100,160,255,.7); border-radius:50%; animation:spin 1s linear infinite; }
   @keyframes spin { to{transform:rotate(360deg)} }
   .fade-in { animation:fadeIn .6s ease forwards; }
   .fade-in-up { animation:fadeInUp .7s ease forwards; }
@@ -468,10 +468,13 @@ onWheel = { handleWheel }
 
   < button className = "map-btn" onClick = { onToggleFullscreen } style = {{
   position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
-    fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
-      padding: '8px 18px', borderRadius: 10, whiteSpace: 'nowrap',
+    fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+      padding: '10px 24px', borderRadius: 10, whiteSpace: 'nowrap',
+        background: fullscreen ? 'rgba(180,30,30,.85)' : 'rgba(15,40,100,.92)',
+          border: fullscreen ? '1px solid rgba(255,100,100,.5)' : '1px solid rgba(100,160,255,.35)',
+            color: fullscreen ? '#ffaaaa' : '#90c8ff',
       }}>
-  { fullscreen? '✕ Cerrar': '⛶ Expandir' }
+  { fullscreen? '✕ Cerrar mapa': '⛶ Expandir' }
   < /button>
 
   < button onClick = { handleCenter } style = {{
@@ -853,7 +856,14 @@ if (phase === 'media' && foundTable?.videoUrl) {
             ) : isImg ? (
   <img src= { url } alt = "Tu invitación" />
             ) : (
-  <video ref= { videoRef } src = { url } autoPlay playsInline controls onEnded = {() => setPhase('map')} />
+  <video ref= { videoRef } src = { url } autoPlay playsInline controls
+onEnded = {() => setPhase('map')}
+onLoadedMetadata = { () => {
+  const v = videoRef.current;
+  if (v && v.requestFullscreen) v.requestFullscreen().catch(() => { });
+  else if (v && (v as any).webkitEnterFullscreen) (v as any).webkitEnterFullscreen();
+}}
+/>
             )}
 </div>
   < div style = {{ display: 'flex', gap: 10, marginTop: 20 }}>
