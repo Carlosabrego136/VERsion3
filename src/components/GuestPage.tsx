@@ -467,7 +467,7 @@ onWheel = { handleWheel }
 </div>
 
   < button className = "map-btn" onClick = { onToggleFullscreen } style = {{
-  position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
+  position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
     fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
       padding: '10px 24px', borderRadius: 10, whiteSpace: 'nowrap',
         background: fullscreen ? 'rgba(180,30,30,.85)' : 'rgba(15,40,100,.92)',
@@ -835,45 +835,43 @@ if (phase === 'media' && foundTable?.videoUrl) {
   const embedUrl = getEmbedUrl(url);
   const isImg = isImage(url);
   return (
-    <div className= "guest-root fade-in" style = {{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }
+    <div style= {{ position: 'fixed', inset: 0, background: '#000', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }
 }>
-  <style>{ styles } < /style><div className="aurora-bg" / > <StarField />
-  < div style = {{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', padding: '24px 20px' }}>
-    <div className="fade-in-up" style = {{ textAlign: 'center', marginBottom: 20 }}>
-      <p style={ { fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(140,170,255,.5)', marginBottom: 8 } }> { event.name } < /p>
-        < h1 className = "guest-name" > { foundGuest?.name } { foundGuest?.surname } </h1>
-          < div style = {{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
-            <span className="table-badge" >✦ Mesa { foundTable.label } ✦</span>
-              < /div>
-              < /div>
-              < div className = "gold-line" style = {{ marginBottom: 20 }} />
-                < div className = "media-container fade-in-up" style = {{ animationDelay: '.15s', flex: 1 }}>
-                {
-                  embedUrl?(
-              <div style = {{ position: 'relative', paddingBottom: '177.78%', height: 0 }} >
-                  <iframe src={ embedUrl } style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow = "autoplay; fullscreen; picture-in-picture" allowFullScreen />
-                    </div>
-            ) : isImg ? (
-  <img src= { url } alt = "Tu invitación" />
-            ) : (
-  <video ref= { videoRef } src = { url } autoPlay playsInline controls
+  <style>{ styles } < /style>
+{/* Video / imagen limpia sin nada encima */ }
+{
+  embedUrl ? (
+    <iframe src= { embedUrl } style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }
+} allow = "autoplay; fullscreen; picture-in-picture" allowFullScreen />
+      ) : isImg ? (
+  <img src= { url } alt = "Invitación" style = {{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+      ) : (
+  <video
+          ref= { videoRef }
+src = { url }
+autoPlay
+playsInline
 onEnded = {() => setPhase('map')}
-onLoadedMetadata = { () => {
-  const v = videoRef.current;
-  if (v && v.requestFullscreen) v.requestFullscreen().catch(() => { });
-  else if (v && (v as any).webkitEnterFullscreen) (v as any).webkitEnterFullscreen();
-}}
+style = {{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
 />
-            )}
-</div>
-  < div style = {{ display: 'flex', gap: 10, marginTop: 20 }}>
-    <button className="btn-gold" onClick = {() => setPhase('map')} style = {{ flex: 1 }}> View my table < /button>
-      < button className = "btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}> Search again < /button>
-        < /div>
-        < /div>
-        < /div>
-    );
-  }
+      )}
+{/* Botón saltar discreto arriba a la derecha */ }
+<button
+        onClick={ () => setPhase('map') }
+style = {{
+  position: 'absolute', top: 20, right: 20, zIndex: 10,
+    background: 'rgba(0,0,0,.5)', border: '1px solid rgba(255,255,255,.2)',
+      color: 'rgba(255,255,255,.7)', fontFamily: 'Montserrat, sans-serif',
+        fontSize: 11, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase',
+          padding: '8px 16px', borderRadius: 10, cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+        }}
+      >
+  Saltar →
+</button>
+  < /div>
+  );
+}
 
 // MAP
 if (phase === 'map') {
