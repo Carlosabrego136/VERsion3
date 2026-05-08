@@ -58,8 +58,8 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
     try {
       // ── 1. CANVAS DE CAPTURA — mismo ratio que la portada ──────────────────
       const captureCanvas = document.createElement('canvas');
-      captureCanvas.width = CW * 2;   // 720
-      captureCanvas.height = CH * 2;  // 1280
+      captureCanvas.width = CW * 3;   // 1080
+      captureCanvas.height = CH * 3;  // 1920
       const ctx = captureCanvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
@@ -139,8 +139,8 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         setRecordingProgress(0);
       };
 
-      const OW = captureCanvas.width;  // 720
-      const OH = captureCanvas.height; // 1280
+      const OW = captureCanvas.width;  // 1080
+      const OH = captureCanvas.height; // 1920
 
       // ── 6. LOOP DE GRABACIÓN ───────────────────────────────────────────────
       const duration = 10000;
@@ -325,8 +325,8 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
         ))}
 
 <div style={ { position: 'absolute', left: event.qrPosition.x, top: event.qrPosition.y, zIndex: 50 } }>
-  <div style={ { background: 'white', padding: 10, borderRadius: 12, width: event.qrSize, height: event.qrSize, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } }>
-    <QRCodeSVG value={ guestPageUrl } size = { event.qrSize - 20 } />
+  <div style={ { background: 'white', padding: 10, borderRadius: 12, display: 'inline-flex', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } }>
+    <QRCodeSVG value={ guestPageUrl } size = { event.qrSize } />
       </div>
       < /div>
       < /div>
