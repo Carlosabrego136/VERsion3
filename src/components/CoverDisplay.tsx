@@ -56,10 +56,10 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
     recordedChunksRef.current = [];
 
     try {
-      // Crear un canvas para capturar el contenido
+      // Canvas exactamente del tamaño de la portada (CW×2 × CH×2) — sin barras negras
       const captureCanvas = document.createElement('canvas');
-      captureCanvas.width = 720;
-      captureCanvas.height = 1280;
+      captureCanvas.width = CW * 2;   // 720
+      captureCanvas.height = CH * 2;  // 1280
       const ctx = captureCanvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
@@ -143,9 +143,10 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
 
       if (animCanvas) animCanvas.style.opacity = '1';
 
-      const OW = captureCanvas.width;
-      const OH = captureCanvas.height;
-      const fitScale = Math.min(OW / overlaySnapshot.width, OH / overlaySnapshot.height);
+      const OW = captureCanvas.width;  // CW*2
+      const OH = captureCanvas.height; // CH*2
+      // Llenar todo el canvas sin barras — el snapshot y el canvas son del mismo ratio
+      const fitScale = Math.max(OW / overlaySnapshot.width, OH / overlaySnapshot.height);
       const ox = (OW - overlaySnapshot.width * fitScale) / 2;
       const oy = (OH - overlaySnapshot.height * fitScale) / 2;
       const dw = overlaySnapshot.width * fitScale;
@@ -223,7 +224,7 @@ if (isRotated90) {
   // Portrait: fit inside the screen without cropping
   const scaleW = vw / CW;
   const scaleH = vh / CH;
-  scale = Math.min(scaleW, scaleH); // min = letterbox (black bars on sides)
+  scale = Math.max(scaleW, scaleH); // max = fill screen sin barras negras
 }
 
 const normalizedDeg = ((rotation % 360) + 360) % 360;

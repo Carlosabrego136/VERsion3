@@ -514,9 +514,12 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
     <div style= {{
     position: 'fixed', inset: 0, zIndex: 10,
       display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-          padding: '24px 20px',
-            background: 'transparent',
+        alignItems: 'center', justifyContent: 'flex-start',
+          paddingTop: 'max(60px, 10vh)',
+            paddingBottom: '24px',
+              paddingLeft: '20px', paddingRight: '20px',
+                background: 'transparent',
+                  overflowY: 'auto',
     }
 }>
   {/* Decorative orbs */ }
@@ -671,12 +674,10 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
   welcome
   < /p>
 
-{/* CTA button — space always reserved to prevent layout jump */}
-<div style={{ width: '100%', maxWidth: 280, minHeight: 56 }}>
-  {showButton && (
-    <div className="reveal-buttons">
-      <button
-            onClick={onContinue}
+{/* CTA button — always rendered with fixed height to prevent layout jump */}
+<div className="reveal-buttons" style={{ width: '100%', maxWidth: 280, visibility: showButton ? 'visible' : 'hidden' }}>
+  <button
+        onClick={onContinue}
 style = {{
   width: '100%',
     background: 'linear-gradient(135deg, rgba(180,150,55,.25), rgba(212,175,55,.15))',
@@ -701,11 +702,9 @@ onMouseLeave = { e => {
   (e.target as HTMLElement).style.background = 'linear-gradient(135deg, rgba(180,150,55,.25), rgba(212,175,55,.15))';
   (e.target as HTMLElement).style.borderColor = 'rgba(212,175,55,.5)';
 }}
-          >
+      >
   View my seat on the map ✦
 </button>
-    </div>
-  )}
 </div>
 </div>
   );
