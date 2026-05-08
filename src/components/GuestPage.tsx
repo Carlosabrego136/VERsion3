@@ -864,7 +864,7 @@ style = {{
             backdropFilter: 'blur(10px)',
         }}
       >
-  Saltar →
+  Skip →
 </button>
   < /div>
   );
@@ -887,7 +887,7 @@ if (phase === 'map') {
           { foundGuest?.name } { foundGuest?.surname }
 </h2>
   < div style = {{ display: 'flex', justifyContent: 'center' }}>
-    <span className="table-badge" >✦ Mesa { foundTable?.label || 'Sin asignar' } ✦</span>
+    <span className="table-badge" >✦ Table { foundTable?.label || 'Unassigned' } ✦</span>
       < /div>
       < /div>
 
@@ -983,7 +983,7 @@ draggable = { false}
                     textAlign: 'center',
             }
 }>
-              ✦ El pin dorado marca tu mesa ✦
+              ✦ The golden pin marks your table ✦
 </div>
   < /div>
         ) : (
@@ -1003,11 +1003,11 @@ getMarkerIcon = { getMarkerIcon }
 <div style={ { display: 'flex', gap: 10 } }>
   { foundTable?.videoUrl && (
     <button className="btn-gold" onClick = {() => setPhase('media')} style = {{ flex: 1 }}>
-              🎬 Ver video de tu mesa
+              🎬 Watch your table video
   < /button>
           )}
 <button className="btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}>
-  Buscar de nuevo
+  Search again
     < /button>
     < /div>
     < /div>
