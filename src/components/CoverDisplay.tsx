@@ -67,11 +67,35 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       // Obtener el stream del canvas con framerate alto
       const stream = captureCanvas.captureStream(60);
 
-      // Configurar MediaRecorder con mejor calidad
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8',
-        videoBitsPerSecond: 5000000
-      });
+      // Elegir el mejor formato disponible — mp4 nativo > webm (renombrado a mp4)
+      const mp4Types = [
+        'video/mp4;codecs=avc1',
+        'video/mp4;codecs=h264',
+        'video/mp4',
+      ];
+      const webmTypes = [
+        'video/webm;codecs=h264',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+      ];
+
+      let chosenMime = '';
+      let isNativeMp4 = false;
+
+      for (const t of mp4Types) {
+        if (MediaRecorder.isTypeSupported(t)) { chosenMime = t; isNativeMp4 = true; break; }
+      }
+      if (!chosenMime) {
+        for (const t of webmTypes) {
+          if (MediaRecorder.isTypeSupported(t)) { chosenMime = t; break; }
+        }
+      }
+
+      const recorderOptions: MediaRecorderOptions = { videoBitsPerSecond: 5000000 };
+      if (chosenMime) recorderOptions.mimeType = chosenMime;
+
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
       mediaRecorderRef.current = mediaRecorder;
 
@@ -82,11 +106,14 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        // Siempre descargar como .mp4 — funciona en Android/Desktop con webm-h264
+        // En Safari ya es mp4 nativo. En Chrome/webm-vp8 abrirá en VLC/players modernos.
+        const blobType = isNativeMp4 ? 'video/mp4' : (chosenMime || 'video/webm');
+        const blob = new Blob(recordedChunksRef.current, { type: blobType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `pantalla_${event?.title || 'evento'}_${Date.now()}.webm`;
+        a.download = `${event?.name || 'evento'}_${Date.now()}.mp4`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -259,14 +286,14 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
   {
     el.elementType === 'text' && (
       <div style={
-        {
-          fontSize: `${el.style.fontSize || 24}px`,
-            color: String(el.style.color || '#fff'),
-              fontFamily: String(el.style.fontFamily || 'serif'),
-                fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-                  fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                    textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                      whiteSpace: 'nowrap',
+  {
+    fontSize: `${el.style.fontSize || 24}px`,
+      color: String(el.style.color || '#fff'),
+        fontFamily: String(el.style.fontFamily || 'serif'),
+          fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+            fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                whiteSpace: 'nowrap',
               }
 }>
   { el.content }
@@ -309,12 +336,12 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
   }
         >
     <div style={
-      {
-        width: 12,
-          height: 12,
-            borderRadius: '50%',
-              background: '#fff',
-                animation: 'pulse 1s infinite',
+    {
+      width: 12,
+        height: 12,
+          borderRadius: '50%',
+            background: '#fff',
+              animation: 'pulse 1s infinite',
           }
   } />
     < span style = {{ color: 'white', fontSize: 14, fontWeight: 600 }
