@@ -79,34 +79,63 @@ const styles = `
     100% { opacity:1; transform:translateY(0); }
   }
   @keyframes pulseGold {
-    0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0), 0 0 60px rgba(212,175,55,.08); }
-    50%      { box-shadow: 0 0 0 18px rgba(212,175,55,0), 0 0 80px rgba(212,175,55,.18); }
+    0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0), 0 0 40px rgba(212,175,55,.15), 0 0 80px rgba(212,175,55,.06); }
+    50%      { box-shadow: 0 0 0 22px rgba(212,175,55,0), 0 0 70px rgba(212,175,55,.35), 0 0 120px rgba(212,175,55,.12); }
   }
   @keyframes orbFloat {
     0%,100% { transform: translateY(0) scale(1); opacity:.55; }
     50%      { transform: translateY(-18px) scale(1.06); opacity:.75; }
   }
+  @keyframes spinRingSlow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes spinRingReverse {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
+  @keyframes circleEntrance {
+    0%   { opacity:0; transform:scale(0.3) rotate(-20deg); filter:blur(20px); }
+    55%  { opacity:1; transform:scale(1.1) rotate(4deg); filter:blur(0); }
+    75%  { transform:scale(0.96) rotate(-1deg); }
+    100% { opacity:1; transform:scale(1) rotate(0deg); filter:blur(0); }
+  }
+  @keyframes numberPop {
+    0%   { opacity:0; transform:scale(0.5); filter:blur(8px); }
+    65%  { opacity:1; transform:scale(1.12); filter:blur(0); }
+    100% { opacity:1; transform:scale(1); }
+  }
   .reveal-table-num {
-    animation: revealTableNum 0.9s cubic-bezier(.22,.9,.36,1) 0.3s both;
+    animation: circleEntrance 1.1s cubic-bezier(.22,.9,.36,1) 0.3s both,
+               pulseGold 3.5s ease-in-out 1.6s infinite;
+  }
+  .reveal-table-num .ring-outer {
+    animation: spinRingSlow 12s linear infinite;
+  }
+  .reveal-table-num .ring-inner {
+    animation: spinRingReverse 8s linear infinite;
+  }
+  .reveal-table-num .num-text {
+    animation: numberPop 0.7s cubic-bezier(.22,.9,.36,1) 0.9s both;
   }
   .reveal-label {
     animation: revealLabel 0.7s ease 1.1s both;
   }
   .reveal-line {
-    animation: revealLine 0.6s ease 1.6s both;
+    animation: revealLine 0.6s ease 1.8s both;
     transform-origin: center;
   }
   .reveal-name {
-    animation: revealName 0.8s ease 1.9s both;
+    animation: revealName 0.8s ease 2.1s both;
   }
   .reveal-subtitle {
-    animation: revealSubtitle 0.6s ease 2.5s both;
+    animation: revealSubtitle 0.6s ease 2.7s both;
   }
   .reveal-buttons {
-    animation: revealButtons 0.6s ease 3.0s both;
+    animation: revealButtons 0.6s ease 3.2s both;
   }
   .pulse-gold {
-    animation: pulseGold 3s ease-in-out infinite;
+    animation: pulseGold 3.5s ease-in-out infinite;
   }
   .orb-float {
     animation: orbFloat 6s ease-in-out infinite;
@@ -238,7 +267,7 @@ function CanvasMap({ tables, markers, myTableId, fullscreen, onToggleFullscreen,
       if (isMine) {
         ctx.fillStyle = 'rgba(212,175,55,0.7)';
         ctx.font = `500 8px Montserrat, sans-serif`;
-        ctx.fillText('TU MESA', x + w2 / 2, y + h2 / 2 + 8);
+        ctx.fillText('MY TABLE', x + w2 / 2, y + h2 / 2 + 8);
       }
 
       ctx.restore();
@@ -381,7 +410,7 @@ onWheel = { handleWheel }
         fontFamily: 'Montserrat, sans-serif', fontSize: 11, fontWeight: 500,
           letterSpacing: '0.08em', textTransform: 'uppercase',
             padding: '8px 14px', borderRadius: 10, cursor: 'pointer', backdropFilter: 'blur(10px)',
-      }}>✦ Mi mesa < /button>
+      }}>✦ My table < /button>
 
   < div style = {{
   position: 'absolute', bottom: 16, left: 16, zIndex: 20,
@@ -452,34 +481,60 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
           animation: 'revealSubtitle 0.6s ease 0.1s both',
       }
 }>
-  tu mesa es
+  your table
     < /p>
 
 {/* Big table number */ }
-<div className="reveal-table-num pulse-gold" style = {{
-  width: 160, height: 160, borderRadius: '50%',
-    border: '2px solid rgba(212,175,55,.45)',
-      background: 'radial-gradient(circle at 40% 35%, rgba(212,175,55,.18) 0%, rgba(10,25,70,.8) 60%)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 28,
-            position: 'relative',
-              backdropFilter: 'blur(10px)',
+<div className="reveal-table-num" style = {{
+  width: 172, height: 172, borderRadius: '50%',
+    background: 'radial-gradient(circle at 38% 32%, rgba(212,175,55,.22) 0%, rgba(8,18,55,.92) 55%, rgba(4,10,35,.98) 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: 28,
+          position: 'relative',
+            backdropFilter: 'blur(14px)',
       }}>
-  {/* Inner ring */ }
-  < div style = {{
-  position: 'absolute', inset: 8, borderRadius: '50%',
-    border: '1px solid rgba(212,175,55,.2)',
+  {/* Outer spinning dashed ring */ }
+  < div className = "ring-outer" style = {{
+  position: 'absolute', inset: -6, borderRadius: '50%',
+    border: '1.5px dashed rgba(212,175,55,.3)',
+      pointerEvents: 'none',
         }} />
-  < span style = {{
+{/* Main border */ }
+<div style={
+  {
+    position: 'absolute', inset: 0, borderRadius: '50%',
+      border: '2px solid rgba(212,175,55,.55)',
+        pointerEvents: 'none',
+        }
+} />
+{/* Inner spinning ring */ }
+<div className="ring-inner" style = {{
+  position: 'absolute', inset: 10, borderRadius: '50%',
+    border: '1px solid rgba(212,175,55,.18)',
+      borderTopColor: 'rgba(212,175,55,.5)',
+        pointerEvents: 'none',
+        }} />
+{/* Innermost subtle ring */ }
+<div style={
+  {
+    position: 'absolute', inset: 18, borderRadius: '50%',
+      border: '1px solid rgba(212,175,55,.08)',
+        pointerEvents: 'none',
+        }
+} />
+{/* Number */ }
+<span className="num-text" style = {{
   fontFamily: 'Cormorant Garamond, serif',
     fontWeight: 300,
-      fontSize: table?.label && table.label.length > 3 ? 'clamp(2.5rem,12vw,4rem)' : 'clamp(3.5rem,16vw,5.5rem)',
-        background: 'linear-gradient(145deg, #f5e090 0%, #d4af37 45%, #a07c20 100%)',
+      fontSize: table?.label && table.label.length > 3 ? 'clamp(2.5rem,12vw,4rem)' : 'clamp(3.8rem,17vw,5.8rem)',
+        background: 'linear-gradient(160deg, #fff8dc 0%, #f5e090 25%, #d4af37 55%, #a07c20 100%)',
           WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
                 lineHeight: 1,
                   letterSpacing: '-0.02em',
+                    position: 'relative', zIndex: 1,
+                      filter: 'drop-shadow(0 2px 12px rgba(212,175,55,.4))',
         }}>
   { table?.label || '—'}
 </span>
@@ -503,8 +558,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
   fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase',
     color: 'rgba(140,170,255,.4)', marginBottom: 44, textAlign: 'center',
       }}>
-  bienvenido · welcome
-    < /p>
+  welcome
+  < /p>
 
 {/* CTA button */ }
 {
@@ -538,7 +593,7 @@ onMouseLeave = { e => {
   (e.target as HTMLElement).style.borderColor = 'rgba(212,175,55,.5)';
 }}
           >
-  Ver mi lugar en el mapa ✦
+  View my seat on the map ✦
 </button>
   < /div>
       )}
@@ -569,10 +624,10 @@ export default function GuestPage({ eventId }: GuestPageProps) {
         const [ev, t, g, m] = await Promise.all([
           getEvent(eventId), getTables(eventId), getGuests(eventId), getLocationMarkers(eventId)
         ]);
-        if (!ev) { setLoadError('Evento no encontrado'); return; }
+        if (!ev) { setLoadError('Event not found'); return; }
         setEvent(ev); setTables(t); setGuests(g); setMarkers(m);
         setPhase('search');
-      } catch { setLoadError('Error cargando el evento'); }
+      } catch { setLoadError('Error loading event'); }
     };
     load();
   }, [eventId]);
@@ -593,9 +648,9 @@ export default function GuestPage({ eventId }: GuestPageProps) {
         // Siempre va a reveal primero
         setPhase('reveal');
       } else {
-        alert('No se encontró ese nombre. Verifica nombre y apellido.');
+        alert('Guest not found. Please check your name and last name.');
       }
-    } catch { alert('Error al buscar.'); }
+    } catch { alert('Search error. Please try again.'); }
     setSearching(false);
   };
 
@@ -630,7 +685,7 @@ export default function GuestPage({ eventId }: GuestPageProps) {
   <style>{ styles } < /style><div className="aurora-bg" / > <StarField />
   < div style = {{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
     <div className="spinner" style = {{ margin: '0 auto 20px' }} />
-      < p style = {{ color: 'rgba(140,170,255,.6)', fontSize: 13, letterSpacing: '.1em', textTransform: 'uppercase' }}> Cargando < /p>
+      < p style = {{ color: 'rgba(140,170,255,.6)', fontSize: 13, letterSpacing: '.1em', textTransform: 'uppercase' }}> Loading < /p>
         < /div>
         < /div>
   );
@@ -641,7 +696,7 @@ if (loadError || !event) return (
     < div style = {{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 24px' }}>
       <div style={ { fontSize: 40, marginBottom: 16 } }>✦</div>
         < h1 style = {{ fontFamily: 'Cormorant Garamond,serif', fontSize: 28, color: '#e8f0fe', marginBottom: 8 }}> { loadError || 'Error'}</h1>
-          < p style = {{ color: 'rgba(140,170,255,.5)', fontSize: 13 }}> Verifica el código QR < /p>
+          < p style = {{ color: 'rgba(140,170,255,.5)', fontSize: 13 }}> Check your QR code < /p>
             < /div>
             < /div>
   );
@@ -692,8 +747,8 @@ if (phase === 'media' && foundTable?.videoUrl) {
             )}
 </div>
   < div style = {{ display: 'flex', gap: 10, marginTop: 20 }}>
-    <button className="btn-gold" onClick = {() => setPhase('map')} style = {{ flex: 1 }}> Ver mi mesa < /button>
-      < button className = "btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}> Buscar otro < /button>
+    <button className="btn-gold" onClick = {() => setPhase('map')} style = {{ flex: 1 }}> View my table < /button>
+      < button className = "btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}> Search again < /button>
         < /div>
         < /div>
         < /div>
@@ -733,9 +788,9 @@ getMarkerIcon = { getMarkerIcon }
   {!mapFullscreen && (
     <div style={ { display: 'flex', gap: 10, marginTop: 14 } }>
       { foundTable?.videoUrl && (
-        <button className="btn-gold" onClick = {() => setPhase('media')} style = {{ flex: 1 }}> Ver video < /button>
+        <button className="btn-gold" onClick = {() => setPhase('media')} style = {{ flex: 1 }}> Watch video < /button>
               )}
-<button className="btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}> Buscar otro < /button>
+<button className="btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}> Search again < /button>
   < /div>
           )}
 </div>
@@ -749,7 +804,7 @@ return (
     <style>{ styles } < /style><div className="aurora-bg" / > <StarField />
     < div style = {{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
       <div className="fade-in-up" style = {{ textAlign: 'center', marginBottom: 32 }}>
-        <div style={ { fontSize: 11, letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(180,150,55,.7)', marginBottom: 14 } }>✦ Bienvenido ✦</div>
+        <div style={ { fontSize: 11, letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(180,150,55,.7)', marginBottom: 14 } }>✦ Welcome ✦</div>
           < h1 style = {{ fontFamily: 'Cormorant Garamond,serif', fontWeight: 300, fontSize: 'clamp(2rem,9vw,3rem)', color: '#e8f0fe', lineHeight: 1.2, marginBottom: 8 }}>
             { event.name || 'Tu Evento' }
             < /h1>
@@ -765,17 +820,17 @@ return (
       < div className = "glass-card fade-in-up" style = {{ padding: '28px 24px', animationDelay: '.15s' }
   }>
     <div className="ornament" style = {{ marginBottom: 24 }
-}> BUSCA TU LUGAR < /div>
+}> FIND YOUR SEAT < /div>
   < div style = {{ marginBottom: 14 }}>
-    <label className="field-label" > Nombre < /label>
-      < input className = "search-input" value = { searchName } onChange = { e => setSearchName(e.target.value) } placeholder = "Tu nombre" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
+    <label className="field-label" > Name < /label>
+      < input className = "search-input" value = { searchName } onChange = { e => setSearchName(e.target.value) } placeholder = "Your name" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
         </div>
         < div style = {{ marginBottom: 24 }}>
-          <label className="field-label" > Apellido < /label>
-            < input className = "search-input" value = { searchSurname } onChange = { e => setSearchSurname(e.target.value) } placeholder = "Tu apellido" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
+          <label className="field-label" > Last name < /label>
+            < input className = "search-input" value = { searchSurname } onChange = { e => setSearchSurname(e.target.value) } placeholder = "Your last name" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
               </div>
               < button className = "btn-primary" onClick = { handleSearch } disabled = { searching } >
-                { searching? 'Buscando...': 'Encontrar mi mesa' }
+                { searching? 'Searching...': 'Find my table' }
                 < /button>
                 < /div>
                 < p style = {{ textAlign: 'center', marginTop: 20, color: 'rgba(100,130,200,.3)', fontSize: 10, letterSpacing: '.15em' }}>✦</p>
