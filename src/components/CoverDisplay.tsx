@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 import AnimationCanvas from './Animations';
 import { CoverElement, AnimationType } from '../types';
 import { getEvent, getCoverElements } from '../store';
 import { EventData } from '../types';
 
+// Must match CoverEditor canvas reference
 const CW = 360;
 const CH = 640;
 
@@ -36,10 +37,7 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
   }, [eventId]);
 
   useEffect(() => {
-    const onResize = () => {
-      setVw(window.innerWidth);
-      setVh(window.innerHeight);
-    };
+    const onResize = () => { setVw(window.innerWidth); setVh(window.innerHeight); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -50,16 +48,6 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
     return () => clearTimeout(t);
   }, [showControls]);
 
-  const stopRecording = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-  };
-
   const startRecording = async () => {
     if (!canvasRef.current || !event) return;
 
@@ -68,40 +56,38 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
     recordedChunksRef.current = [];
 
     try {
+      // ── 1. CANVAS DE CAPTURA — mismo ratio que la portada ──────────────────
       const captureCanvas = document.createElement('canvas');
-      captureCanvas.width = CW * 2;
-      captureCanvas.height = CH * 2;
-      captureCanvas.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
-      document.body.appendChild(captureCanvas);
+      captureCanvas.width = CW * 2;   // 720
+      captureCanvas.height = CH * 2;  // 1280
       const ctx = captureCanvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      const OW = captureCanvas.width;
-      const OH = captureCanvas.height;
-
+      // ── 2. PRE-CARGAR imagen de fondo (si existe) antes de grabar ──────────
       let bgImage: HTMLImageElement | null = null;
       if (event.backgroundType === 'image' && event.backgroundUrl) {
         bgImage = await new Promise<HTMLImageElement>((resolve) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = () => resolve(img);
-          img.onerror = () => resolve(img);
+          img.onerror = () => resolve(img); // continuar aunque falle
           img.src = event.backgroundUrl;
         });
       }
 
+      // ── 3. PRE-RENDERIZAR textos + QR con html2canvas (una sola vez) ───────
       const html2canvas = (await import('html2canvas')).default;
       const animCanvas = canvasRef.current.querySelector('canvas') as HTMLCanvasElement | null;
-      const bgEl = canvasRef.current.querySelector('img') as HTMLImageElement | null;
-      const qrWrapEl = canvasRef.current.querySelector('[data-qr-wrap]') as HTMLElement | null;
 
+      // Ocultar canvas de animación para snapshot limpio de textos + QR
       if (animCanvas) animCanvas.style.visibility = 'hidden';
+      // También ocultar el fondo para capturarlo por separado (evita CORS issues)
+      const bgEl = canvasRef.current.querySelector('img') as HTMLImageElement | null;
       if (bgEl) bgEl.style.visibility = 'hidden';
-      if (qrWrapEl) qrWrapEl.style.visibility = 'hidden';
 
       const overlaySnapshot = await html2canvas(canvasRef.current, {
-        backgroundColor: null,
+        backgroundColor: null,   // transparente — nosotros dibujamos el fondo
         scale: 2,
         useCORS: true,
         allowTaint: true,
@@ -111,10 +97,8 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
 
       if (animCanvas) animCanvas.style.visibility = '';
       if (bgEl) bgEl.style.visibility = '';
-      if (qrWrapEl) qrWrapEl.style.visibility = '';
 
-      const qrCanvasEl = canvasRef.current.querySelector('[data-qr-canvas] canvas') as HTMLCanvasElement | null;
-
+      // ── 4. FORMATO — mp4 nativo > webm ────────────────────────────────────
       const mp4Types = ['video/mp4;codecs=avc1', 'video/mp4;codecs=h264', 'video/mp4'];
       const webmTypes = ['video/webm;codecs=h264', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
       let chosenMime = '';
@@ -131,6 +115,7 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       const recorderOptions: MediaRecorderOptions = { videoBitsPerSecond: 8000000 };
       if (chosenMime) recorderOptions.mimeType = chosenMime;
 
+      // ── 5. STREAM + RECORDER — arranca DESPUÉS del snapshot ───────────────
       const stream = captureCanvas.captureStream(30);
       const mediaRecorder = new MediaRecorder(stream, recorderOptions);
       mediaRecorderRef.current = mediaRecorder;
@@ -140,7 +125,6 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       };
 
       mediaRecorder.onstop = () => {
-        document.body.removeChild(captureCanvas);
         const blobType = isNativeMp4 ? 'video/mp4' : (chosenMime || 'video/webm');
         const blob = new Blob(recordedChunksRef.current, { type: blobType });
         const url = URL.createObjectURL(blob);
@@ -155,11 +139,10 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         setRecordingProgress(0);
       };
 
-      const qrX = event.qrPosition.x * 2;
-      const qrY = event.qrPosition.y * 2;
-      const qrSize = event.qrSize * 2;
-      const qrPad = 10 * 2;
+      const OW = captureCanvas.width;  // 720
+      const OH = captureCanvas.height; // 1280
 
+      // ── 6. LOOP DE GRABACIÓN ───────────────────────────────────────────────
       const duration = 10000;
       const startTime = Date.now();
 
@@ -169,10 +152,12 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
 
         ctx.clearRect(0, 0, OW, OH);
 
+        // A) Fondo: color sólido o imagen precargada (objectFit: cover)
         if (event.backgroundType === 'color' || !event.backgroundUrl) {
           ctx.fillStyle = event.accentColor || '#111';
           ctx.fillRect(0, 0, OW, OH);
         } else if (event.backgroundType === 'image' && bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
+          // Replicar objectFit: cover
           const imgW = bgImage.naturalWidth;
           const imgH = bgImage.naturalHeight;
           const scaleC = Math.max(OW / imgW, OH / imgH);
@@ -186,6 +171,7 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
           ctx.fillRect(0, 0, OW, OH);
         }
 
+        // B) Gradiente overlay (igual al del div)
         const grad = ctx.createLinearGradient(0, 0, 0, OH);
         grad.addColorStop(0, 'rgba(0,0,0,0.15)');
         grad.addColorStop(0.5, 'rgba(0,0,0,0)');
@@ -193,27 +179,13 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, OW, OH);
 
+        // C) Canvas de animación en vivo
         if (animCanvas && animCanvas.width > 0) {
           ctx.drawImage(animCanvas, 0, 0, OW, OH);
         }
 
+        // D) Textos + QR (snapshot estático, fondo transparente)
         ctx.drawImage(overlaySnapshot, 0, 0, OW, OH);
-
-        if (qrCanvasEl && qrCanvasEl.width > 0) {
-          ctx.save();
-          const r = 12 * 2;
-          ctx.beginPath();
-          ctx.moveTo(qrX + r, qrY);
-          ctx.arcTo(qrX + qrSize, qrY, qrX + qrSize, qrY + qrSize, r);
-          ctx.arcTo(qrX + qrSize, qrY + qrSize, qrX, qrY + qrSize, r);
-          ctx.arcTo(qrX, qrY + qrSize, qrX, qrY, r);
-          ctx.arcTo(qrX, qrY, qrX + qrSize, qrY, r);
-          ctx.closePath();
-          ctx.fillStyle = 'white';
-          ctx.fill();
-          ctx.drawImage(qrCanvasEl, qrX + qrPad, qrY + qrPad, qrSize - qrPad * 2, qrSize - qrPad * 2);
-          ctx.restore();
-        }
 
         if (elapsed < duration && mediaRecorderRef.current?.state === 'recording') {
           animationFrameRef.current = requestAnimationFrame(drawFrame);
@@ -222,6 +194,7 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         }
       };
 
+      // Dibujar un frame antes de arrancar el recorder para que no haya frame negro inicial
       drawFrame();
       mediaRecorder.start(100);
       animationFrameRef.current = requestAnimationFrame(drawFrame);
@@ -230,6 +203,16 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       console.error('Error al grabar:', err);
       alert('Error al iniciar la grabacion. Intenta de nuevo.');
       setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
     }
   };
 
@@ -246,26 +229,34 @@ const animation = (event.coverConfig?.animation as AnimationType) || 'none';
 const guestPageUrl = `${window.location.origin}${window.location.pathname}#guest/${eventId}`;
 const isRotated90 = Math.abs(rotation % 180) === 90;
 
+// Vertical (0° / 180°): fit height so the 9:16 canvas shows fully centered.
+// Black bars appear on the sides — that's correct.
+// Horizontal (90° / 270°): scale so the canvas fills the full screen width AND height.
 let scale: number;
 if (isRotated90) {
+  // After rotating 90°, the canvas is landscape.
+  // CW becomes the height axis, CH becomes the width axis.
+  // Fill both vw and vh completely.
   const scaleW = vw / CH;
   const scaleH = vh / CW;
   scale = Math.max(scaleW, scaleH);
 } else {
+  // Portrait: fit inside the screen without cropping
   const scaleW = vw / CW;
   const scaleH = vh / CH;
-  scale = Math.max(scaleW, scaleH);
+  scale = Math.max(scaleW, scaleH); // max = fill screen sin barras negras
 }
 
 const normalizedDeg = ((rotation % 360) + 360) % 360;
 
 return (
   <div
-      style= {{ position: 'fixed', inset: 0, background: event.accentColor || '#111', overflow: 'hidden' }}
-onClick = {() => setShowControls((p) => !p)}
+      style= {{ position: 'fixed', inset: 0, background: '#000', overflow: 'hidden' }}
+onClick = {() => setShowControls(p => !p)}
     >
-  <div
-        ref={ canvasRef }
+  {/* Canvas centered, scaled, then rotated */ }
+  < div
+ref = { canvasRef }
 style = {{
   position: 'absolute',
     top: '50%',
@@ -292,10 +283,7 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
   event.backgroundType === 'video' && event.backgroundUrl && (
     <video
             src={ event.backgroundUrl }
-  autoPlay
-  loop
-  muted
-  playsInline
+            autoPlay loop muted playsInline
   style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }
 }
 />
@@ -306,25 +294,15 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
         )
 }
 
-<div
-          style={
-  {
-    position: 'absolute',
-      inset: 0,
-        background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))',
-          pointerEvents: 'none',
-          }
-}
-/>
+<div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))', pointerEvents: 'none' } } />
   < AnimationCanvas animation = { animation } accentColor = { event.accentColor } />
 
   {
-    elements.map((el: CoverElement) => (
+    elements.map(el => (
       <div key= { el.id } style = {{ position: 'absolute', left: el.position.x, top: el.position.y, zIndex: el.zIndex }} >
   {
     el.elementType === 'text' && (
-      <div
-                style={
+      <div style={
   {
     fontSize: `${el.style.fontSize || 24}px`,
       color: String(el.style.color || '#fff'),
@@ -333,41 +311,27 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
             fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
               textShadow: '0 2px 8px rgba(0,0,0,0.6)',
                 whiteSpace: 'nowrap',
-                }
-}
-              >
+              }
+}>
   { el.content }
   < /div>
             )}
 {
   el.elementType === 'image' && (
-    <img
-                src={ el.content }
-  alt = ""
-  style = {{ width: el.size.width, height: el.size.height, objectFit: 'contain' }
-}
-/>
+    <img src={ el.content } alt = "" style = {{ width: el.size.width, height: el.size.height, objectFit: 'contain' }
+} />
             )}
 </div>
         ))}
 
-<div data - qr - wrap="" style = {{ position: 'absolute', left: event.qrPosition.x, top: event.qrPosition.y, zIndex: 50 }}>
-  <div
-            data - qr - canvas=""
-style = {{
-  background: 'white',
-    padding: 10,
-      borderRadius: 12,
-        width: event.qrSize,
-          height: event.qrSize,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-            }}
-          >
-  <QRCodeCanvas value={ guestPageUrl } size = { event.qrSize - 20 } />
-    </div>
-    < /div>
-    < /div>
+<div style={ { position: 'absolute', left: event.qrPosition.x, top: event.qrPosition.y, zIndex: 50 } }>
+  <div style={ { background: 'white', padding: 10, borderRadius: 12, width: event.qrSize, height: event.qrSize, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } }>
+    <QRCodeSVG value={ guestPageUrl } size = { event.qrSize - 20 } />
+      </div>
+      < /div>
+      < /div>
 
+{/* Recording indicator */ }
 {
   isRecording && (
     <div
@@ -388,20 +352,38 @@ style = {{
           }
   }
         >
-    <div style={ { width: 12, height: 12, borderRadius: '50%', background: '#fff', animation: 'pulse 1s infinite' } } />
-      < span style = {{ color: 'white', fontSize: 14, fontWeight: 600 }
+    <div style={
+    {
+      width: 12,
+        height: 12,
+          borderRadius: '50%',
+            background: '#fff',
+              animation: 'pulse 1s infinite',
+          }
+  } />
+    < span style = {{ color: 'white', fontSize: 14, fontWeight: 600 }
 }>
   Grabando... { Math.round(recordingProgress) }%
     </span>
     < button
 onClick = {(e) => { e.stopPropagation(); stopRecording(); }}
-style = {{ padding: '4px 12px', background: 'white', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+style = {{
+  padding: '4px 12px',
+    background: 'white',
+      color: '#dc2626',
+        border: 'none',
+          borderRadius: 6,
+            fontSize: 12,
+              fontWeight: 600,
+                cursor: 'pointer',
+            }}
           >
   Detener
   < /button>
   < /div>
       )}
 
+{/* Controls */ }
 <div
         style={
   {
@@ -423,10 +405,10 @@ style = {{ padding: '4px 12px', background: 'white', color: '#dc2626', border: '
                                   whiteSpace: 'nowrap',
         }
 }
-onClick = {(e) => e.stopPropagation()}
-      >
+onClick = { e => e.stopPropagation() }
+  >
   <button
-          onClick={ () => setRotation((r) => r - 90) }
+          onClick={ () => setRotation(r => r - 90) }
 style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
         >
           ↺
@@ -435,14 +417,14 @@ style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255
     { normalizedDeg }°
 </span>
   < button
-onClick = {() => setRotation((r) => r + 90)}
+onClick = {() => setRotation(r => r + 90)}
 style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
         >
           ↻
 </button>
   < div style = {{ width: 1, height: 22, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
 {
-  [0, 90, 180, 270].map((deg) => (
+  [0, 90, 180, 270].map(deg => (
     <button
             key= { deg }
             onClick = {() => setRotation(deg)}
