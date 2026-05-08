@@ -202,10 +202,10 @@ className = "text-amber-600 hover:text-amber-700 text-sm font-medium transition-
                 key= { s.id }
                 onClick = {() => setStep(s.id)}
 className = {`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${step === s.id
-    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
-    : step > s.id
-      ? 'bg-amber-100 text-amber-700'
-      : 'text-gray-400 hover:text-gray-600'
+  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
+  : step > s.id
+    ? 'bg-amber-100 text-amber-700'
+    : 'text-gray-400 hover:text-gray-600'
   }`}
               >
   <span className="text-base" > { s.icon } < /span>
@@ -314,8 +314,8 @@ guestPageUrl = { guestPageUrl }
 {
   step === 4 && (
     <div className="max-w-4xl mx-auto space-y-4" >
-      <TableMapEditor eventId={ event.id } />
-        < div className = "flex gap-3" >
+      <TableMapEditor key={ `map-${event.id}-${step}` } eventId = { event.id } />
+        <div className = "flex gap-3" >
           <button onClick={ () => setStep(3) } className = "flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all" >
                 & larr; Atras
     < /button>
