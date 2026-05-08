@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import DraggableItem from './DraggableItem';
-import { TableData, LocationMarker, TABLE_SHAPES, MARKER_TYPES } from '../types';
-import { generateId, saveTable, deleteTable, getTables, saveLocationMarker, deleteLocationMarker, getLocationMarkers, getGuests } from '../store';
+import { TableData } from '../types';
+import { generateId, saveTable, deleteTable, getTables, getGuests, getEvent, saveEvent } from '../store';
+import { EventData } from '../types';
 
 interface TableMapEditorProps {
   eventId: string;
@@ -9,19 +9,27 @@ interface TableMapEditorProps {
 
 export default function TableMapEditor({ eventId }: TableMapEditorProps) {
   const [tables, setTables] = useState<TableData[]>([]);
-  const [markers, setMarkers] = useState<LocationMarker[]>([]);
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
+  const [event, setEvent] = useState<EventData | null>(null);
   const [newTableLabel, setNewTableLabel] = useState('');
-  const [newTableShape, setNewTableShape] = useState<TableData['shape']>('round');
   const [tableGuests, setTableGuests] = useState<Record<string, number>>({});
-  const [mapExpanded, setMapExpanded] = useState(false);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [placingMode, setPlacingMode] = useState(false);
+  const [floorPlanUrl, setFloorPlanUrl] = useState('');
+  const [floorPlanInput, setFloorPlanInput] = useState('');
+  const [uploadingPlan, setUploadingPlan] = useState(false);
+  const [draggingTable, setDraggingTable] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => {
-    const [t, m, g] = await Promise.all([getTables(eventId), getLocationMarkers(eventId), getGuests(eventId)]);
+    const [t, g, ev] = await Promise.all([getTables(eventId), getGuests(eventId), getEvent(eventId)]);
     setTables(t);
-    setMarkers(m);
+    setEvent(ev);
+    if (ev?.floorPlanUrl) {
+      setFloorPlanUrl(ev.floorPlanUrl);
+      if (!ev.floorPlanUrl.startsWith('data:')) setFloorPlanInput(ev.floorPlanUrl);
+    }
     const counts: Record<string, number> = {};
     g.forEach(guest => { counts[guest.tableId] = (counts[guest.tableId] || 0) + 1; });
     setTableGuests(counts);
@@ -29,306 +37,292 @@ export default function TableMapEditor({ eventId }: TableMapEditorProps) {
 
   useEffect(() => { refresh(); }, [eventId]);
 
-  // Manejar ESC para salir de pantalla completa
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && mapExpanded) {
-        setMapExpanded(false);
-      }
+  const handleFloorPlanFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setUploadingPlan(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const url = e.target?.result as string;
+      setFloorPlanUrl(url);
+      if (event) await saveEvent({ ...event, floorPlanUrl: url });
+      setUploadingPlan(false);
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mapExpanded]);
+    reader.readAsDataURL(file);
+  };
 
-  const addTable = async () => {
-    if (!newTableLabel.trim()) return;
+  const handleSaveFloorPlanUrl = async () => {
+    if (!event || !floorPlanInput.trim()) return;
+    setFloorPlanUrl(floorPlanInput.trim());
+    await saveEvent({ ...event, floorPlanUrl: floorPlanInput.trim() });
+  };
+
+  const handleImageClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!placingMode || !newTableLabel.trim()) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
     const t: TableData = {
       id: generateId(),
       eventId,
       label: newTableLabel.trim(),
-      shape: newTableShape,
-      position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
+      shape: 'round',
+      position: { x: xPct, y: yPct },
       size: { width: 80, height: 80 },
       videoUrl: '',
       videoType: '',
     };
     await saveTable(t);
     setNewTableLabel('');
+    setPlacingMode(false);
     refresh();
   };
 
-  const addMarker = async (type: string) => {
-    const m: LocationMarker = {
-      id: generateId(),
-      eventId,
-      markerType: type,
-      label: MARKER_TYPES.find(mt => mt.value === type)?.label || type,
-      position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
-    };
-    await saveLocationMarker(m);
-    refresh();
+  const handlePinPointerDown = (e: React.PointerEvent, tableId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingTable(tableId);
+    setSelectedTable(tableId);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const handleTableMove = (id: string) => (x: number, y: number) => {
-    setTables(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, position: { x, y } } : t);
-      const t = updated.find(t => t.id === id);
-      if (t) saveTable(t);
-      return updated;
-    });
+  const handleContainerPointerMove = (e: React.PointerEvent) => {
+    if (!draggingTable) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const xPct = Math.max(1, Math.min(99, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPct = Math.max(1, Math.min(99, ((e.clientY - rect.top) / rect.height) * 100));
+    setTables(prev => prev.map(t => t.id === draggingTable ? { ...t, position: { x: xPct, y: yPct } } : t));
   };
 
-  const handleMarkerMove = (id: string) => (x: number, y: number) => {
-    setMarkers(prev => {
-      const updated = prev.map(m => m.id === id ? { ...m, position: { x, y } } : m);
-      const m = updated.find(m => m.id === id);
-      if (m) saveLocationMarker(m);
-      return updated;
-    });
+  const handleContainerPointerUp = async () => {
+    if (!draggingTable) return;
+    const t = tables.find(t => t.id === draggingTable);
+    if (t) await saveTable(t);
+    setDraggingTable(null);
   };
 
   const removeTable = async (id: string) => {
     await deleteTable(id);
-    if (selectedTable === id) setSelectedTable(null);
+    setSelectedTable(null);
     refresh();
-  };
-
-  const removeMarker = async (id: string) => {
-    await deleteLocationMarker(id);
-    if (selectedMarker === id) setSelectedMarker(null);
-    refresh();
-  };
-
-  const getShapeClass = (shape: string) => {
-    const base = 'flex items-center justify-center text-xs font-bold shadow-md transition-all';
-    switch (shape) {
-      case 'round': return `${base} rounded-full`;
-      case 'rect': return `${base} rounded-lg`;
-      case 'oval': return `${base} rounded-full`;
-      case 'square': return `${base} rounded-md`;
-      default: return `${base} rounded-full`;
-    }
-  };
-
-  const getMarkerIcon = (type: string) => {
-    switch (type) {
-      case 'entrance': return '\u{1F6AA}';
-      case 'exit': return '\u{1F6B6}';
-      case 'stage': return '\u{1F3A4}';
-      case 'bar': return '\u{1F378}';
-      case 'dancefloor': return '\u{1F483}';
-      case 'buffet': return '\u{1F37D}';
-      case 'restroom': return '\u{1F6BB}';
-      case 'dj': return '\u{1F3A7}';
-      default: return '\u{1F4CD}';
-    }
   };
 
   const selTable = tables.find(t => t.id === selectedTable);
-  const selMarker = markers.find(m => m.id === selectedMarker);
-
-  // Contenido del mapa (reutilizado en ambos modos)
-  const mapContent = (
-    <>
-      <div className="absolute inset-0 opacity-10" style={{
-        backgroundImage: 'radial-gradient(circle, #999 1px, transparent 1px)',
-        backgroundSize: '30px 30px',
-      }} />
-
-      {tables.map(t => (
-        <DraggableItem
-          key={t.id}
-          x={t.position.x}
-          y={t.position.y}
-          onMove={handleTableMove(t.id)}
-          containerRef={containerRef}
-        >
-          <div
-            className={getShapeClass(t.shape)}
-            style={{
-              width: t.size.width,
-              height: t.size.height,
-              background: selectedTable === t.id
-                ? 'linear-gradient(135deg, #d4af37, #c9956b)'
-                : 'linear-gradient(135deg, #f5f0e8, #e8dcc8)',
-              border: selectedTable === t.id ? '3px solid #b8860b' : '2px solid #d4af37',
-              color: selectedTable === t.id ? '#fff' : '#8b7355',
-            }}
-            onPointerDownCapture={() => { setSelectedTable(t.id); setSelectedMarker(null); }}
-          >
-            <div className="text-center leading-tight">
-              <div className="text-sm font-bold">{t.label}</div>
-              <div className="text-[10px] opacity-70">{tableGuests[t.id] || 0} personas</div>
-            </div>
-          </div>
-        </DraggableItem>
-      ))}
-
-      {markers.map(m => (
-        <DraggableItem
-          key={m.id}
-          x={m.position.x}
-          y={m.position.y}
-          onMove={handleMarkerMove(m.id)}
-          containerRef={containerRef}
-        >
-          <div
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm transition-all ${selectedMarker === m.id ? 'ring-2 ring-amber-400 bg-amber-50' : 'bg-white/90'}`}
-            onPointerDownCapture={() => { setSelectedMarker(m.id); setSelectedTable(null); }}
-          >
-            <span>{getMarkerIcon(m.markerType)}</span>
-            <span className="text-gray-700">{m.label}</span>
-          </div>
-        </DraggableItem>
-      ))}
-
-      {selTable && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-3 z-50 min-w-[250px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-semibold text-gray-800">Mesa {selTable.label}</span>
-            <button onClick={() => removeTable(selTable.id)} className="text-red-400 hover:text-red-600 text-sm">Eliminar</button>
-          </div>
-          <div className="text-xs text-gray-500 space-y-1">
-            <div>Forma: {TABLE_SHAPES.find(s => s.value === selTable.shape)?.label}</div>
-            <div>Invitados: {tableGuests[selTable.id] || 0}</div>
-            <div>Video: {selTable.videoUrl ? 'Cargado' : 'Sin video'}</div>
-          </div>
-          <button onClick={() => setSelectedTable(null)} className="mt-2 w-full px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors">
-            Cerrar
-          </button>
-        </div>
-      )}
-
-      {selMarker && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-3 z-50">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-semibold text-gray-800">{getMarkerIcon(selMarker.markerType)} {selMarker.label}</span>
-            <button onClick={() => removeMarker(selMarker.id)} className="text-red-400 hover:text-red-600 text-sm">Eliminar</button>
-          </div>
-          <button onClick={() => setSelectedMarker(null)} className="w-full px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors">
-            Cerrar
-          </button>
-        </div>
-      )}
-    </>
-  );
-
-  // Modal de pantalla completa
-  if (mapExpanded) {
-    return (
-      <div className="fixed inset-0 z-[9999] bg-black">
-        {/* Barra de herramientas en pantalla completa */}
-        <div className="absolute top-0 left-0 right-0 z-[10000] bg-white/95 backdrop-blur-sm border-b border-gray-200 p-3">
-          <div className="flex flex-wrap items-center gap-2 max-w-screen-xl mx-auto">
-            <input
-              value={newTableLabel}
-              onChange={e => setNewTableLabel(e.target.value)}
-              placeholder="Numero de mesa"
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 w-32"
-              onKeyDown={e => e.key === 'Enter' && addTable()}
-            />
-            <select value={newTableShape} onChange={e => setNewTableShape(e.target.value as TableData['shape'])} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">
-              {TABLE_SHAPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-            <button onClick={addTable} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors">
-              + Mesa
-            </button>
-            <div className="h-6 w-px bg-gray-300 mx-2" />
-            {MARKER_TYPES.map(mt => (
-              <button
-                key={mt.value}
-                onClick={() => addMarker(mt.value)}
-                className="px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs text-gray-700 transition-colors"
-              >
-                {getMarkerIcon(mt.value)} {mt.label}
-              </button>
-            ))}
-            <div className="flex-1" />
-            <span className="text-xs text-gray-500">Mesas: {tables.length} | ESC para salir</span>
-            <button
-              onClick={() => setMapExpanded(false)}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-
-        {/* Canvas del mapa en pantalla completa */}
-        <div
-          ref={containerRef}
-          className="absolute top-16 left-0 right-0 bottom-0 overflow-auto"
-          style={{ background: 'linear-gradient(135deg, #f8f6f0 0%, #f0ece4 100%)' }}
-        >
-          <div 
-            className="relative"
-            style={{ 
-              width: '4000px', 
-              height: '3000px',
-              minWidth: '100%',
-              minHeight: '100%'
-            }}
-          >
-            {mapContent}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const hasFloorPlan = !!floorPlanUrl;
 
   return (
-    <div className="space-y-4">
-      {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
-        <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide">Mapa de Mesas</h3>
-
-        <div className="flex flex-wrap gap-2 items-end">
-          <input
-            value={newTableLabel}
-            onChange={e => setNewTableLabel(e.target.value)}
-            placeholder="Numero de mesa"
-            className="flex-1 min-w-[100px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-            onKeyDown={e => e.key === 'Enter' && addTable()}
-          />
-          <select value={newTableShape} onChange={e => setNewTableShape(e.target.value as TableData['shape'])} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">
-            {TABLE_SHAPES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-          <button onClick={addTable} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors">
-            + Mesa
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {MARKER_TYPES.map(mt => (
+    <div className= "space-y-4" >
+    {/* Panel plano */ }
+    < div className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
+      <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" >🗺️ Plano del Salón < /h3>
+        < p className = "text-xs text-gray-500" > Sube una foto del salón con las mesas ya dibujadas, luego coloca un pin sobre cada mesa.< /p>
+          < div className = "flex flex-wrap gap-2 items-center" >
             <button
-              key={mt.value}
-              onClick={() => addMarker(mt.value)}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors"
+            onClick={ () => fileInputRef.current?.click() }
+  disabled = { uploadingPlan }
+  className = "px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+    >
+    { uploadingPlan? 'Subiendo...': '📷 Subir imagen' }
+    < /button>
+    < input ref = { fileInputRef } type = "file" accept = "image/*" className = "hidden"
+  onChange = { e => { const f = e.target.files?.[0]; if (f) handleFloorPlanFile(f); }
+} />
+  < span className = "text-xs text-gray-400" > ó pegar URL: </span>
+    < div className = "flex gap-2 flex-1 min-w-[180px]" >
+      <input
+              value={ floorPlanInput }
+onChange = { e => setFloorPlanInput(e.target.value) }
+placeholder = "https://..."
+className = "flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+  />
+  <button onClick={ handleSaveFloorPlanUrl }
+className = "px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors" >
+  Guardar
+  < /button>
+  < /div>
+  < /div>
+{
+  hasFloorPlan && (
+    <div className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2" >
+            ✓ Plano cargado — coloca pins abajo en cada mesa
+    < /div>
+        )
+}
+</div>
+
+{/* Panel agregar mesa */ }
+{
+  hasFloorPlan && (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3" >
+      <h3 className="font-semibold text-gray-800 text-sm uppercase tracking-wide" >📍 Agregar Mesa < /h3>
+        < div className = "flex gap-2 items-center flex-wrap" >
+          <input
+              value={ newTableLabel }
+  onChange = { e => setNewTableLabel(e.target.value) }
+  placeholder = "Ej: Mesa 1, VIP, Familia..."
+  className = "flex-1 min-w-[140px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+  onKeyDown = { e => e.key === 'Enter' && newTableLabel.trim() && setPlacingMode(true) }
+    />
+    <button
+              onClick={ () => { if (newTableLabel.trim()) setPlacingMode(true); } }
+  disabled = {!newTableLabel.trim()
+}
+className = {`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${placingMode ? 'bg-green-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40'
+  }`}
             >
-              {getMarkerIcon(mt.value)} {mt.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  { placingMode? '👆 Haz clic en el plano...': '+ Colocar pin' }
+  < /button>
+{
+  placingMode && (
+    <button onClick={ () => setPlacingMode(false) }
+  className = "px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm" >
+    Cancelar
+    < /button>
+            )
+}
+</div>
+{
+  placingMode && (
+    <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2" >
+              ✦ Haz clic sobre el plano donde está "{newTableLabel}"
+    < /p>
+          )
+}
+</div>
+      )}
 
-      {/* Expand button */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setMapExpanded(true)}
-          className="px-3 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg font-medium transition-colors"
-        >
-          {'⤢ Expandir mapa (pantalla completa)'}
-        </button>
-      </div>
+{/* Plano interactivo */ }
+{
+  hasFloorPlan ? (
+    <div className= "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" >
+    <div
+            ref={ containerRef }
+  className = "relative w-full select-none"
+  style = {{ cursor: placingMode ? 'crosshair' : 'default' }
+}
+onClick = { handleImageClick }
+onPointerMove = { handleContainerPointerMove }
+onPointerUp = { handleContainerPointerUp }
+  >
+  <img
+              ref={ imgRef }
+src = { floorPlanUrl }
+alt = "Plano del salón"
+className = "w-full block"
+style = {{ userSelect: 'none', pointerEvents: 'none' }}
+draggable = { false}
+  />
 
-      {/* Map canvas */}
-      <div
-        ref={containerRef}
-        className="relative w-full bg-gray-50 rounded-xl overflow-hidden shadow-lg border border-gray-200"
-        style={{ minHeight: '500px', height: '60vh', background: 'linear-gradient(135deg, #f8f6f0 0%, #f0ece4 100%)' }}
-      >
-        {mapContent}
-      </div>
-    </div>
+{
+  tables.map(t => (
+    <div
+                key= { t.id }
+                style = {{
+    position: 'absolute',
+    left: `${t.position.x}%`,
+    top: `${t.position.y}%`,
+    transform: 'translate(-50%, -100%)',
+    zIndex: selectedTable === t.id ? 20 : 10,
+    cursor: draggingTable === t.id ? 'grabbing' : 'grab',
+    touchAction: 'none',
+  }}
+onPointerDown = { e => handlePinPointerDown(e, t.id) }
+onClick = { e => { e.stopPropagation(); setSelectedTable(t.id === selectedTable ? null : t.id); }}
+              >
+  <div style={
+    {
+      background: selectedTable === t.id
+        ? 'linear-gradient(135deg, #d4af37, #b8860b)'
+        : 'linear-gradient(135deg, #1a50a8, #2565c0)',
+        border: '2px solid rgba(255,255,255,0.9)',
+          borderRadius: '10px 10px 10px 2px',
+            padding: '4px 8px',
+              color: '#fff',
+                fontSize: 11,
+                  fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                      boxShadow: selectedTable === t.id
+                        ? '0 4px 16px rgba(212,175,55,0.7)'
+                        : '0 2px 8px rgba(0,0,0,0.4)',
+                        fontFamily: 'Montserrat, sans-serif',
+                          display: 'flex',
+                            alignItems: 'center',
+                              gap: 4,
+                                transition: 'box-shadow 0.2s',
+                }
+}>
+  <span style={ { fontSize: 9 } }>📍</span>
+{ t.label }
+{
+  tableGuests[t.id] ? (
+    <span style= {{ background: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: '1px 5px', fontSize: 9 }
+}>
+  { tableGuests[t.id]}
+  < /span>
+                  ) : null}
+</div>
+  < div style = {{
+  width: 0, height: 0,
+    borderLeft: '5px solid transparent',
+      borderRight: '5px solid transparent',
+        borderTop: `7px solid ${selectedTable === t.id ? '#d4af37' : '#1a50a8'}`,
+          margin: '0 auto',
+                }} />
+  < /div>
+            ))}
+
+{
+  selTable && (
+    <div
+                style={
+    {
+      position: 'absolute',
+        left: `${Math.min(selTable.position.x, 70)}%`,
+          top: `${selTable.position.y}%`,
+            transform: 'translate(0, 12px)',
+              zIndex: 30,
+                background: 'rgba(255,255,255,0.97)',
+                  border: '1px solid #e5e7eb',
+                    borderRadius: 12,
+                      padding: '12px 16px',
+                        minWidth: 170,
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                }
+  }
+  onClick = { e => e.stopPropagation() }
+    >
+    <div className="flex justify-between items-center mb-2" >
+      <span className="font-bold text-gray-800 text-sm" > { selTable.label } < /span>
+        < button onClick = {() => removeTable(selTable.id)
+} className = "text-red-400 hover:text-red-600 text-xs ml-3" >
+                    🗑️ Eliminar
+  < /button>
+  < /div>
+  < div className = "text-xs text-gray-500 space-y-0.5" >
+    <div>Invitados: { tableGuests[selTable.id] || 0 } </div>
+      < div > Video: { selTable.videoUrl ? '✓ Cargado' : 'Sin video' } </div>
+        < div className = "text-[10px] text-gray-400 mt-1" > Arrastra el pin para reubicarlo < /div>
+          < /div>
+          < button onClick = {() => setSelectedTable(null)}
+className = "mt-2 w-full text-xs text-center text-gray-400 hover:text-gray-600" >
+  Cerrar ✕
+</button>
+  < /div>
+            )}
+</div>
+
+  < div className = "p-3 bg-gray-50 border-t border-gray-100 flex justify-between text-xs text-gray-400" >
+    <span>{ tables.length } mesa{ tables.length !== 1 ? 's' : '' } colocada{ tables.length !== 1 ? 's' : '' } </span>
+      < span > Arrastra pins para moverlos · Haz clic para ver detalle < /span>
+        < /div>
+        < /div>
+      ) : (
+  <div className= "bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 p-12 text-center" >
+  <div className="text-4xl mb-3" >🏛️</div>
+    < p className = "text-gray-500 text-sm font-medium mb-1" > Sin plano del salón < /p>
+      < p className = "text-gray-400 text-xs" > Sube una imagen del salón para empezar a colocar mesas < /p>
+        < /div>
+      )}
+</div>
   );
 }

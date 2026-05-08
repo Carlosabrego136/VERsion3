@@ -202,6 +202,7 @@ function mapEventFromDb(row: Record<string, unknown>): EventData {
     coverConfig: coverConfig || {},
     qrPosition: { x: (qrPos?.x as number) ?? 80, y: (qrPos?.y as number) ?? 80 },
     qrSize: (row.qr_size as number) ?? 150,
+    floorPlanUrl: (row.floor_plan_url as string) || '',
   };
 }
 
@@ -219,6 +220,7 @@ function mapEventToDb(event: EventData): Record<string, unknown> {
     cover_config: event.coverConfig || {},
     qr_position: event.qrPosition,
     qr_size: event.qrSize,
+    floor_plan_url: event.floorPlanUrl || '',
   };
 }
 

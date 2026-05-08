@@ -873,28 +873,126 @@ style = {{
   );
 }
 
-// MAP
+// MAP — Floor plan with illuminated pin
 if (phase === 'map') {
+  const floorPlan = event.floorPlanUrl;
   return (
     <div className= "guest-root fade-in" style = {{ minHeight: '100vh' }
 }>
   <style>{ styles } < /style>
-{ !mapFullscreen && <><div className="aurora-bg" /> <StarField /></ >}
-<div style={ { position: 'relative', zIndex: 1, padding: mapFullscreen ? 0 : '20px 16px', display: 'flex', flexDirection: 'column', minHeight: '100vh' } }>
+  < div className = "aurora-bg" />
+    <StarField />
+    < div style = {{ position: 'relative', zIndex: 1, padding: '20px 16px', display: 'flex', flexDirection: 'column', minHeight: '100vh', gap: 14 }}>
 
-  {!mapFullscreen && (
-    <div className="glass-card fade-in-up" style = {{ padding: '20px 24px', marginBottom: 14, textAlign: 'center' }}>
-      <h2 className="guest-name" style = {{ fontSize: 'clamp(1.6rem,6vw,2.4rem)' }}>
-        { foundGuest?.name } { foundGuest?.surname }
+      {/* Guest name + table badge */ }
+      < div className = "glass-card fade-in-up" style = {{ padding: '20px 24px', textAlign: 'center' }}>
+        <h2 className="guest-name" style = {{ fontSize: 'clamp(1.5rem,6vw,2.2rem)', marginBottom: 8 }}>
+          { foundGuest?.name } { foundGuest?.surname }
 </h2>
-  < div style = {{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+  < div style = {{ display: 'flex', justifyContent: 'center' }}>
     <span className="table-badge" >✦ Mesa { foundTable?.label || 'Sin asignar' } ✦</span>
       < /div>
       < /div>
-          )}
 
-<CanvasMap
-            tables={ tables }
+{/* Floor plan with pin */ }
+{
+  floorPlan ? (
+    <div className= "fade-in-up" style = {{ position: 'relative', borderRadius: 16, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.2)', animationDelay: '.1s' }
+}>
+  <img
+              src={ floorPlan }
+alt = "Plano del salón"
+style = {{ width: '100%', display: 'block', userSelect: 'none' }}
+draggable = { false}
+  />
+  {/* Glow backdrop over entire image — very subtle */ }
+  < div style = {{
+  position: 'absolute', inset: 0,
+    background: 'rgba(0,0,0,0.08)',
+      pointerEvents: 'none',
+            }} />
+{/* Illuminated pin for guest's table */ }
+{
+  foundTable && (
+    <div style={
+      {
+        position: 'absolute',
+          left: `${foundTable.position.x}%`,
+            top: `${foundTable.position.y}%`,
+              transform: 'translate(-50%, -100%)',
+                zIndex: 10,
+                  pointerEvents: 'none',
+              }
+  }>
+    {/* Radial glow behind pin */ }
+    < div style = {{
+    position: 'absolute',
+      left: '50%', top: '100%',
+        transform: 'translate(-50%, -50%)',
+          width: 70, height: 70,
+            borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(212,175,55,0.55) 0%, transparent 70%)',
+                animation: 'pulseGold 2.5s ease-in-out infinite',
+                  zIndex: -1,
+                }
+} />
+{/* Pin label */ }
+<div style={
+  {
+    background: 'linear-gradient(135deg, #d4af37, #f5e090, #b8860b)',
+      border: '2px solid #fff',
+        borderRadius: '12px 12px 12px 2px',
+          padding: '5px 10px',
+            color: '#4a3000',
+              fontSize: 12,
+                fontWeight: 800,
+                  whiteSpace: 'nowrap',
+                    boxShadow: '0 0 0 3px rgba(212,175,55,0.4), 0 4px 20px rgba(212,175,55,0.6)',
+                      fontFamily: 'Montserrat, sans-serif',
+                        letterSpacing: '0.04em',
+                          display: 'flex',
+                            alignItems: 'center',
+                              gap: 4,
+                                animation: 'fadeInUp 0.6s ease 0.3s both',
+                }
+}>
+                  ✦ { foundTable.label }
+</div>
+{/* Pin tip */ }
+<div style={
+  {
+    width: 0, height: 0,
+      borderLeft: '6px solid transparent',
+        borderRight: '6px solid transparent',
+          borderTop: '9px solid #d4af37',
+            margin: '0 auto',
+              filter: 'drop-shadow(0 2px 4px rgba(212,175,55,0.5))',
+                }
+} />
+  < /div>
+            )}
+
+{/* "Tu mesa" label overlay at bottom */ }
+<div style={
+  {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+      background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)',
+        padding: '20px 16px 12px',
+          color: 'rgba(212,175,55,0.9)',
+            fontSize: 11,
+              fontFamily: 'Montserrat, sans-serif',
+                letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                    textAlign: 'center',
+            }
+}>
+              ✦ El pin dorado marca tu mesa ✦
+</div>
+  < /div>
+        ) : (
+  /* Fallback: canvas map if no floor plan */
+  <CanvasMap
+            tables= { tables }
 markers = { markers }
 myTableId = { foundGuest?.tableId }
 fullscreen = { mapFullscreen }
@@ -902,19 +1000,23 @@ onToggleFullscreen = {() => setMapFullscreen(f => !f)}
 onCenterMyTable = {() => { }}
 getMarkerIcon = { getMarkerIcon }
   />
+        )}
 
-  {!mapFullscreen && (
-    <div style={ { display: 'flex', gap: 10, marginTop: 14 } }>
-      { foundTable?.videoUrl && (
-        <button className="btn-gold" onClick = {() => setPhase('media')} style = {{ flex: 1 }}> Watch video < /button>
-              )}
-<button className="btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}> Search again < /button>
-  < /div>
+{/* Action buttons */ }
+<div style={ { display: 'flex', gap: 10 } }>
+  { foundTable?.videoUrl && (
+    <button className="btn-gold" onClick = {() => setPhase('media')} style = {{ flex: 1 }}>
+              🎬 Ver video de tu mesa
+  < /button>
           )}
-</div>
-  < /div>
-    );
-  }
+<button className="btn-ghost" onClick = {() => setPhase('search')} style = {{ flex: 1 }}>
+  Buscar de nuevo
+    < /button>
+    < /div>
+    < /div>
+    < /div>
+  );
+}
 
 // SEARCH
 return (

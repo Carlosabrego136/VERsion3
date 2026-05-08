@@ -11,6 +11,7 @@ export interface EventData {
   coverConfig: Record<string, unknown>;
   qrPosition: { x: number; y: number };
   qrSize: number;
+  floorPlanUrl: string;
 }
 
 export interface TableData {
