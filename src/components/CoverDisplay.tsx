@@ -5,7 +5,6 @@ import { CoverElement, AnimationType } from '../types';
 import { getEvent, getCoverElements } from '../store';
 import { EventData } from '../types';
 
-// Must match CoverEditor canvas reference
 const CW = 360;
 const CH = 640;
 
@@ -37,7 +36,10 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
   }, [eventId]);
 
   useEffect(() => {
-    const onResize = () => { setVw(window.innerWidth); setVh(window.innerHeight); };
+    const onResize = () => {
+      setVw(window.innerWidth);
+      setVh(window.innerHeight);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -260,7 +262,7 @@ const normalizedDeg = ((rotation % 360) + 360) % 360;
 return (
   <div
       style= {{ position: 'fixed', inset: 0, background: event.accentColor || '#111', overflow: 'hidden' }}
-onClick = {() => setShowControls(p => !p)}
+onClick = {() => setShowControls((p) => !p)}
     >
   <div
         ref={ canvasRef }
@@ -290,7 +292,10 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
   event.backgroundType === 'video' && event.backgroundUrl && (
     <video
             src={ event.backgroundUrl }
-            autoPlay loop muted playsInline
+  autoPlay
+  loop
+  muted
+  playsInline
   style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }
 }
 />
@@ -301,7 +306,16 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
         )
 }
 
-<div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))', pointerEvents: 'none' } } />
+<div
+          style={
+  {
+    position: 'absolute',
+      inset: 0,
+        background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))',
+          pointerEvents: 'none',
+          }
+}
+/>
   < AnimationCanvas animation = { animation } accentColor = { event.accentColor } />
 
   {
@@ -309,53 +323,71 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
       <div key= { el.id } style = {{ position: 'absolute', left: el.position.x, top: el.position.y, zIndex: el.zIndex }} >
   {
     el.elementType === 'text' && (
-      <div style={
-        {
-          fontSize: `${el.style.fontSize || 24}px`,
-            color: String(el.style.color || '#fff'),
-              fontFamily: String(el.style.fontFamily || 'serif'),
-                fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-                  fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                    textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                      whiteSpace: 'nowrap',
-              }
-}>
+      <div
+                style={
+  {
+    fontSize: `${el.style.fontSize || 24}px`,
+      color: String(el.style.color || '#fff'),
+        fontFamily: String(el.style.fontFamily || 'serif'),
+          fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+            fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                whiteSpace: 'nowrap',
+                }
+}
+              >
   { el.content }
   < /div>
             )}
 {
   el.elementType === 'image' && (
-    <img src={ el.content } alt = "" style = {{ width: el.size.width, height: el.size.height, objectFit: 'contain' }
-} />
+    <img
+                src={ el.content }
+  alt = ""
+  style = {{ width: el.size.width, height: el.size.height, objectFit: 'contain' }
+}
+/>
             )}
 </div>
         ))}
 
 <div data - qr - wrap="" style = {{ position: 'absolute', left: event.qrPosition.x, top: event.qrPosition.y, zIndex: 50 }}>
-  <div data - qr - canvas="" style = {{ background: 'white', padding: 10, borderRadius: 12, width: event.qrSize, height: event.qrSize, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
-    <QRCodeCanvas value={ guestPageUrl } size = { event.qrSize - 20 } />
-      </div>
-      < /div>
-      < /div>
+  <div
+            data - qr - canvas=""
+style = {{
+  background: 'white',
+    padding: 10,
+      borderRadius: 12,
+        width: event.qrSize,
+          height: event.qrSize,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            }}
+          >
+  <QRCodeCanvas value={ guestPageUrl } size = { event.qrSize - 20 } />
+    </div>
+    < /div>
+    < /div>
 
 {
   isRecording && (
-    <div style={
-      {
-        position: 'fixed',
-          top: 20,
-            left: '50%',
-              transform: 'translateX(-50%)',
-                background: 'rgba(220, 38, 38, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                    borderRadius: 12,
-                      padding: '12px 20px',
-                        zIndex: 1000,
-                          display: 'flex',
-                            alignItems: 'center',
-                              gap: 12,
-        }
-  }>
+    <div
+          style={
+    {
+      position: 'fixed',
+        top: 20,
+          left: '50%',
+            transform: 'translateX(-50%)',
+              background: 'rgba(220, 38, 38, 0.9)',
+                backdropFilter: 'blur(10px)',
+                  borderRadius: 12,
+                    padding: '12px 20px',
+                      zIndex: 1000,
+                        display: 'flex',
+                          alignItems: 'center',
+                            gap: 12,
+          }
+  }
+        >
     <div style={ { width: 12, height: 12, borderRadius: '50%', background: '#fff', animation: 'pulse 1s infinite' } } />
       < span style = {{ color: 'white', fontSize: 14, fontWeight: 600 }
 }>
@@ -391,10 +423,10 @@ style = {{ padding: '4px 12px', background: 'white', color: '#dc2626', border: '
                                   whiteSpace: 'nowrap',
         }
 }
-onClick = { e => e.stopPropagation() }
-  >
+onClick = {(e) => e.stopPropagation()}
+      >
   <button
-          onClick={ () => setRotation(r => r - 90) }
+          onClick={ () => setRotation((r) => r - 90) }
 style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
         >
           ↺
@@ -403,14 +435,14 @@ style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255
     { normalizedDeg }°
 </span>
   < button
-onClick = {() => setRotation(r => r + 90)}
+onClick = {() => setRotation((r) => r + 90)}
 style = {{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
         >
           ↻
 </button>
   < div style = {{ width: 1, height: 22, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
 {
-  [0, 90, 180, 270].map(deg => (
+  [0, 90, 180, 270].map((deg) => (
     <button
             key= { deg }
             onClick = {() => setRotation(deg)}
