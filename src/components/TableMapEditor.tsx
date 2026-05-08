@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { TableData } from '../types';
+import { TableData, GuestData } from '../types';
 import { generateId, saveTable, deleteTable, getTables, getGuests, getEvent, saveEvent } from '../store';
 import { EventData } from '../types';
 
@@ -9,15 +9,16 @@ interface TableMapEditorProps {
 
 export default function TableMapEditor({ eventId }: TableMapEditorProps) {
   const [tables, setTables] = useState<TableData[]>([]);
+  const [guests, setGuests] = useState<GuestData[]>([]);
   const [event, setEvent] = useState<EventData | null>(null);
   const [newTableLabel, setNewTableLabel] = useState('');
-  const [tableGuests, setTableGuests] = useState<Record<string, number>>({});
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [placingMode, setPlacingMode] = useState(false);
   const [floorPlanUrl, setFloorPlanUrl] = useState('');
   const [floorPlanInput, setFloorPlanInput] = useState('');
   const [uploadingPlan, setUploadingPlan] = useState(false);
   const [draggingTable, setDraggingTable] = useState<string | null>(null);
+  const [didDrag, setDidDrag] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,18 +26,21 @@ export default function TableMapEditor({ eventId }: TableMapEditorProps) {
   const refresh = async () => {
     const [t, g, ev] = await Promise.all([getTables(eventId), getGuests(eventId), getEvent(eventId)]);
     setTables(t);
+    setGuests(g);
     setEvent(ev);
     if (ev?.floorPlanUrl) {
       setFloorPlanUrl(ev.floorPlanUrl);
       if (!ev.floorPlanUrl.startsWith('data:')) setFloorPlanInput(ev.floorPlanUrl);
     }
-    const counts: Record<string, number> = {};
-    g.forEach(guest => { counts[guest.tableId] = (counts[guest.tableId] || 0) + 1; });
-    setTableGuests(counts);
   };
 
   useEffect(() => { refresh(); }, [eventId]);
 
+  // ─── Guests por mesa ─────────────────────────────────────────────────────
+  const guestsForTable = (tableId: string): GuestData[] =>
+    guests.filter(g => g.tableId === tableId);
+
+  // ─── Subir plano ─────────────────────────────────────────────────────────
   const handleFloorPlanFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
     setUploadingPlan(true);
@@ -56,6 +60,7 @@ export default function TableMapEditor({ eventId }: TableMapEditorProps) {
     await saveEvent({ ...event, floorPlanUrl: floorPlanInput.trim() });
   };
 
+  // ─── Colocar pin ─────────────────────────────────────────────────────────
   const handleImageClick = async (e: React.MouseEvent<HTMLDivElement>) => {
     if (!placingMode || !newTableLabel.trim()) return;
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -77,16 +82,18 @@ export default function TableMapEditor({ eventId }: TableMapEditorProps) {
     refresh();
   };
 
+  // ─── Drag pin ────────────────────────────────────────────────────────────
   const handlePinPointerDown = (e: React.PointerEvent, tableId: string) => {
     e.stopPropagation();
     e.preventDefault();
     setDraggingTable(tableId);
-    setSelectedTable(tableId);
+    setDidDrag(false);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handleContainerPointerMove = (e: React.PointerEvent) => {
     if (!draggingTable) return;
+    setDidDrag(true);
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const xPct = Math.max(1, Math.min(99, ((e.clientX - rect.left) / rect.width) * 100));
@@ -94,16 +101,22 @@ export default function TableMapEditor({ eventId }: TableMapEditorProps) {
     setTables(prev => prev.map(t => t.id === draggingTable ? { ...t, position: { x: xPct, y: yPct } } : t));
   };
 
-  const handleContainerPointerUp = async () => {
+  const handleContainerPointerUp = async (e: React.PointerEvent) => {
     if (!draggingTable) return;
     const t = tables.find(t => t.id === draggingTable);
     if (t) await saveTable(t);
+    // Solo abrir popup si no hubo drag real
+    if (!didDrag) {
+      setSelectedTable(prev => prev === draggingTable ? null : draggingTable);
+    }
     setDraggingTable(null);
+    setDidDrag(false);
   };
 
-  const removeTable = async (id: string) => {
+  const removeTable = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     await deleteTable(id);
-    setSelectedTable(null);
+    if (selectedTable === id) setSelectedTable(null);
     refresh();
   };
 
@@ -200,7 +213,7 @@ className = {`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${placi
   className = "relative w-full select-none"
   style = {{ cursor: placingMode ? 'crosshair' : 'default' }
 }
-onClick = { handleImageClick }
+onClick = { e => { if (!placingMode) setSelectedTable(null); handleImageClick(e); }}
 onPointerMove = { handleContainerPointerMove }
 onPointerUp = { handleContainerPointerUp }
   >
@@ -214,106 +227,173 @@ draggable = { false}
   />
 
 {
-  tables.map(t => (
-    <div
-                key= { t.id }
-                style = {{
-    position: 'absolute',
-    left: `${t.position.x}%`,
-    top: `${t.position.y}%`,
-    transform: 'translate(-50%, -100%)',
-    zIndex: selectedTable === t.id ? 20 : 10,
-    cursor: draggingTable === t.id ? 'grabbing' : 'grab',
-    touchAction: 'none',
-  }}
-onPointerDown = { e => handlePinPointerDown(e, t.id) }
-onClick = { e => { e.stopPropagation(); setSelectedTable(t.id === selectedTable ? null : t.id); }}
-              >
-  <div style={
-    {
-      background: selectedTable === t.id
-        ? 'linear-gradient(135deg, #d4af37, #b8860b)'
-        : 'linear-gradient(135deg, #1a50a8, #2565c0)',
-        border: '2px solid rgba(255,255,255,0.9)',
-          borderRadius: '10px 10px 10px 2px',
-            padding: '4px 8px',
-              color: '#fff',
-                fontSize: 11,
-                  fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                      boxShadow: selectedTable === t.id
-                        ? '0 4px 16px rgba(212,175,55,0.7)'
-                        : '0 2px 8px rgba(0,0,0,0.4)',
-                        fontFamily: 'Montserrat, sans-serif',
-                          display: 'flex',
-                            alignItems: 'center',
-                              gap: 4,
-                                transition: 'box-shadow 0.2s',
-                }
-}>
+  tables.map(t => {
+    const tGuests = guestsForTable(t.id);
+    const isSelected = selectedTable === t.id;
+    return (
+      <div
+                  key= { t.id }
+    style = {{
+      position: 'absolute',
+        left: `${t.position.x}%`,
+          top: `${t.position.y}%`,
+            transform: 'translate(-50%, -100%)',
+              zIndex: isSelected ? 20 : 10,
+                cursor: draggingTable === t.id ? 'grabbing' : 'grab',
+                  touchAction: 'none',
+                  }
+  }
+                  onPointerDown = { e => handlePinPointerDown(e, t.id)
+}
+  >
+  {/* Pin body */ }
+  < div style = {{
+  background: isSelected
+    ? 'linear-gradient(135deg, #d4af37, #b8860b)'
+    : 'linear-gradient(135deg, #1a50a8, #2565c0)',
+    border: '2px solid rgba(255,255,255,0.9)',
+      borderRadius: '10px 10px 10px 2px',
+        padding: '4px 8px',
+          color: '#fff',
+            fontSize: 11,
+              fontWeight: 700,
+                whiteSpace: 'nowrap',
+                  boxShadow: isSelected
+                    ? '0 4px 16px rgba(212,175,55,0.7)'
+                    : '0 2px 8px rgba(0,0,0,0.4)',
+                    fontFamily: 'Montserrat, sans-serif',
+                      display: 'flex',
+                        alignItems: 'center',
+                          gap: 4,
+                            position: 'relative',
+                  }}>
   <span style={ { fontSize: 9 } }>📍</span>
 { t.label }
 {
-  tableGuests[t.id] ? (
-    <span style= {{ background: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: '1px 5px', fontSize: 9 }
-}>
-  { tableGuests[t.id]}
-  < /span>
-                  ) : null}
-</div>
-  < div style = {{
-  width: 0, height: 0,
-    borderLeft: '5px solid transparent',
-      borderRight: '5px solid transparent',
-        borderTop: `7px solid ${selectedTable === t.id ? '#d4af37' : '#1a50a8'}`,
-          margin: '0 auto',
-                }} />
+  tGuests.length > 0 && (
+    <span style={ { background: 'rgba(255,255,255,0.25)', borderRadius: 8, padding: '1px 5px', fontSize: 9 } }>
+      { tGuests.length }
+      < /span>
+                    )
+}
+{/* ✕ botón eliminar directo en el pin */ }
+<span
+                      onClick={ e => removeTable(t.id, e) }
+style = {{
+  marginLeft: 2,
+    background: 'rgba(0,0,0,0.25)',
+      borderRadius: '50%',
+        width: 14,
+          height: 14,
+            display: 'flex',
+              alignItems: 'center',
+                justifyContent: 'center',
+                  fontSize: 9,
+                    cursor: 'pointer',
+                      flexShrink: 0,
+                        lineHeight: 1,
+                      }}
+title = "Eliminar mesa"
+  >
+                      ✕
+</span>
   < /div>
-            ))}
+{/* Punta del pin */ }
+<div style={
+  {
+    width: 0, height: 0,
+      borderLeft: '5px solid transparent',
+        borderRight: '5px solid transparent',
+          borderTop: `7px solid ${isSelected ? '#d4af37' : '#1a50a8'}`,
+            margin: '0 auto',
+                  }
+} />
+  < /div>
+              );
+            })}
 
+{/* Popup de detalle — lista de invitados */ }
 {
-  selTable && (
-    <div
-                style={
-    {
+  selTable && (() => {
+    const tGuests = guestsForTable(selTable.id);
+    // Calcular posición del popup para que no se salga
+    const leftPct = selTable.position.x > 60 ? undefined : selTable.position.x;
+    const rightAuto = selTable.position.x > 60;
+    return (
+      <div
+                  style= {{
       position: 'absolute',
-        left: `${Math.min(selTable.position.x, 70)}%`,
-          top: `${selTable.position.y}%`,
-            transform: 'translate(0, 12px)',
-              zIndex: 30,
-                background: 'rgba(255,255,255,0.97)',
-                  border: '1px solid #e5e7eb',
-                    borderRadius: 12,
-                      padding: '12px 16px',
-                        minWidth: 170,
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-                }
+        left: rightAuto ? 'auto' : `${leftPct}%`,
+          right: rightAuto ? `${100 - selTable.position.x}%` : 'auto',
+            top: `${selTable.position.y}%`,
+              transform: 'translateY(12px)',
+                zIndex: 30,
+                  background: 'rgba(255,255,255,0.98)',
+                    border: '1px solid #e5e7eb',
+                      borderRadius: 12,
+                        padding: '12px 14px',
+                          minWidth: 190,
+                            maxWidth: 240,
+                              boxShadow: '0 8px 28px rgba(0,0,0,0.18)',
+                  }
   }
-  onClick = { e => e.stopPropagation() }
+                  onClick = { e => e.stopPropagation() }
     >
-    <div className="flex justify-between items-center mb-2" >
-      <span className="font-bold text-gray-800 text-sm" > { selTable.label } < /span>
-        < button onClick = {() => removeTable(selTable.id)
-} className = "text-red-400 hover:text-red-600 text-xs ml-3" >
-                    🗑️ Eliminar
-  < /button>
-  < /div>
-  < div className = "text-xs text-gray-500 space-y-0.5" >
-    <div>Invitados: { tableGuests[selTable.id] || 0 } </div>
-      < div > Video: { selTable.videoUrl ? '✓ Cargado' : 'Sin video' } </div>
-        < div className = "text-[10px] text-gray-400 mt-1" > Arrastra el pin para reubicarlo < /div>
-          < /div>
-          < button onClick = {() => setSelectedTable(null)}
-className = "mt-2 w-full text-xs text-center text-gray-400 hover:text-gray-600" >
-  Cerrar ✕
+    {/* Header */ }
+    < div style = {{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }
+}>
+  <span style={ { fontWeight: 700, fontSize: 13, color: '#1f2937' } }>
+                      📍 { selTable.label }
+</span>
+  < button
+onClick = {() => setSelectedTable(null)}
+style = {{ color: '#9ca3af', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+                    >
+                      ✕
 </button>
   < /div>
-            )}
+
+{/* Lista de invitados */ }
+<div style={ { marginBottom: 8 } }>
+  <p style={ { fontSize: 10, color: '#6b7280', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 } }>
+    Invitados({ tGuests.length })
+    < /p>
+{
+  tGuests.length === 0 ? (
+    <p style= {{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }
+}> Sin invitados asignados < /p>
+                    ) : (
+  <div style= {{ maxHeight: 120, overflowY: 'auto' }}>
+  {
+    tGuests.map(g => (
+      <div key= { g.id } style = {{
+      fontSize: 11, color: '#374151', padding: '3px 0',
+      borderBottom: '1px solid #f3f4f6',
+      display: 'flex', alignItems: 'center', gap: 5,
+    }} >
+    <span style={ { color: '#d4af37', fontSize: 9 } }>✦</span>
+{ g.name } { g.surname }
+</div>
+                        ))}
+</div>
+                    )}
+</div>
+
+{/* Info extra */ }
+{
+  selTable.videoUrl && (
+    <p style={ { fontSize: 10, color: '#059669', marginBottom: 6 } }>🎬 Video asignado < /p>
+                  )
+}
+<p style={ { fontSize: 9, color: '#d1d5db', marginTop: 4 } }> Arrastra el pin para reubicarlo < /p>
+  < /div>
+              );
+            }) ()}
 </div>
 
   < div className = "p-3 bg-gray-50 border-t border-gray-100 flex justify-between text-xs text-gray-400" >
-    <span>{ tables.length } mesa{ tables.length !== 1 ? 's' : '' } colocada{ tables.length !== 1 ? 's' : '' } </span>
-      < span > Arrastra pins para moverlos · Haz clic para ver detalle < /span>
+    <span>{ tables.length } mesa{ tables.length !== 1 ? 's' : '' } · { guests.length } invitado{ guests.length !== 1 ? 's' : '' } </span>
+      < span > Clic en pin para ver invitados · ✕ para eliminar < /span>
         < /div>
         < /div>
       ) : (

@@ -95,15 +95,12 @@ const styles = `
     to   { transform: rotate(-360deg); }
   }
   @keyframes circleEntrance {
-    0%   { opacity:0; transform:scale(0.3) rotate(-20deg); filter:blur(20px); }
-    55%  { opacity:1; transform:scale(1.1) rotate(4deg); filter:blur(0); }
-    75%  { transform:scale(0.96) rotate(-1deg); }
-    100% { opacity:1; transform:scale(1) rotate(0deg); filter:blur(0); }
+    0%   { opacity:0; filter:blur(8px); }
+    100% { opacity:1; filter:blur(0); }
   }
   @keyframes numberPop {
-    0%   { opacity:0; transform:scale(0.5); filter:blur(8px); }
-    65%  { opacity:1; transform:scale(1.12); filter:blur(0); }
-    100% { opacity:1; transform:scale(1); }
+    0%   { opacity:0; filter:blur(4px); }
+    100% { opacity:1; filter:blur(0); }
   }
   /* Light sweep across the circle */
   @keyframes lightSweep {
@@ -141,8 +138,8 @@ const styles = `
     50%      { opacity:.7; }
   }
   .reveal-table-num {
-    animation: circleEntrance 1.1s cubic-bezier(.22,.9,.36,1) 0.3s both,
-               pulseGold 3.5s ease-in-out 1.6s infinite;
+    animation: circleEntrance 0.8s ease 0.3s both,
+               pulseGold 3.5s ease-in-out 1.4s infinite;
   }
   .reveal-table-num .ring-outer {
     animation: spinRingSlow 12s linear infinite, ringBreath 3s ease-in-out infinite;
@@ -151,7 +148,7 @@ const styles = `
     animation: spinRingReverse 8s linear infinite;
   }
   .reveal-table-num .num-text {
-    animation: numberPop 0.7s cubic-bezier(.22,.9,.36,1) 0.9s both;
+    animation: numberPop 0.6s ease 0.7s both;
   }
   .reveal-table-num .light-sweep {
     animation: lightSweep 2.2s ease-in-out 1.2s both;
