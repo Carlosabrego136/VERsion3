@@ -49,14 +49,14 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
   }, [showControls]);
 
   const startRecording = async () => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !event) return;
 
     setIsRecording(true);
     setRecordingProgress(0);
     recordedChunksRef.current = [];
 
     try {
-      // Canvas exactamente del tamaño de la portada (CW×2 × CH×2) — sin barras negras
+      // ── 1. CANVAS DE CAPTURA — mismo ratio que la portada ──────────────────
       const captureCanvas = document.createElement('canvas');
       captureCanvas.width = CW * 2;   // 720
       captureCanvas.height = CH * 2;  // 1280
@@ -64,25 +64,45 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Obtener el stream del canvas con 30fps
-      const stream = captureCanvas.captureStream(30);
+      // ── 2. PRE-CARGAR imagen de fondo (si existe) antes de grabar ──────────
+      let bgImage: HTMLImageElement | null = null;
+      if (event.backgroundType === 'image' && event.backgroundUrl) {
+        bgImage = await new Promise<HTMLImageElement>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(img); // continuar aunque falle
+          img.src = event.backgroundUrl;
+        });
+      }
 
-      // Elegir el mejor formato disponible — mp4 nativo > webm (renombrado a mp4)
-      const mp4Types = [
-        'video/mp4;codecs=avc1',
-        'video/mp4;codecs=h264',
-        'video/mp4',
-      ];
-      const webmTypes = [
-        'video/webm;codecs=h264',
-        'video/webm;codecs=vp9',
-        'video/webm;codecs=vp8',
-        'video/webm',
-      ];
+      // ── 3. PRE-RENDERIZAR textos + QR con html2canvas (una sola vez) ───────
+      const html2canvas = (await import('html2canvas')).default;
+      const animCanvas = canvasRef.current.querySelector('canvas') as HTMLCanvasElement | null;
 
+      // Ocultar canvas de animación para snapshot limpio de textos + QR
+      if (animCanvas) animCanvas.style.visibility = 'hidden';
+      // También ocultar el fondo para capturarlo por separado (evita CORS issues)
+      const bgEl = canvasRef.current.querySelector('img') as HTMLImageElement | null;
+      if (bgEl) bgEl.style.visibility = 'hidden';
+
+      const overlaySnapshot = await html2canvas(canvasRef.current, {
+        backgroundColor: null,   // transparente — nosotros dibujamos el fondo
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        imageTimeout: 5000,
+      });
+
+      if (animCanvas) animCanvas.style.visibility = '';
+      if (bgEl) bgEl.style.visibility = '';
+
+      // ── 4. FORMATO — mp4 nativo > webm ────────────────────────────────────
+      const mp4Types = ['video/mp4;codecs=avc1', 'video/mp4;codecs=h264', 'video/mp4'];
+      const webmTypes = ['video/webm;codecs=h264', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
       let chosenMime = '';
       let isNativeMp4 = false;
-
       for (const t of mp4Types) {
         if (MediaRecorder.isTypeSupported(t)) { chosenMime = t; isNativeMp4 = true; break; }
       }
@@ -95,19 +115,16 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
       const recorderOptions: MediaRecorderOptions = { videoBitsPerSecond: 8000000 };
       if (chosenMime) recorderOptions.mimeType = chosenMime;
 
+      // ── 5. STREAM + RECORDER — arranca DESPUÉS del snapshot ───────────────
+      const stream = captureCanvas.captureStream(30);
       const mediaRecorder = new MediaRecorder(stream, recorderOptions);
-
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          recordedChunksRef.current.push(e.data);
-        }
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
-        // Siempre descargar como .mp4 — funciona en Android/Desktop con webm-h264
-        // En Safari ya es mp4 nativo. En Chrome/webm-vp8 abrirá en VLC/players modernos.
         const blobType = isNativeMp4 ? 'video/mp4' : (chosenMime || 'video/webm');
         const blob = new Blob(recordedChunksRef.current, { type: blobType });
         const url = URL.createObjectURL(blob);
@@ -122,36 +139,10 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         setRecordingProgress(0);
       };
 
-      mediaRecorder.start(100);
+      const OW = captureCanvas.width;  // 720
+      const OH = captureCanvas.height; // 1280
 
-      // Pre-render static overlay (background, texts, QR) once with html2canvas
-      // Then composite with live animation canvas every frame — smooth 30fps
-      const html2canvas = (await import('html2canvas')).default;
-
-      // Temporarily hide animation canvas to get clean static snapshot
-      const animCanvas = canvasRef.current.querySelector('canvas') as HTMLCanvasElement | null;
-      if (animCanvas) animCanvas.style.opacity = '0';
-
-      const overlaySnapshot = await html2canvas(canvasRef.current, {
-        backgroundColor: '#000000',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        imageTimeout: 0,
-      });
-
-      if (animCanvas) animCanvas.style.opacity = '1';
-
-      // El snapshot de html2canvas con scale:2 sobre un div de CW×CH = exactamente CW*2 × CH*2
-      // Dibujamos 1:1 sin ningún escalado extra — sin barras, sin recorte
-      const OW = captureCanvas.width;
-      const OH = captureCanvas.height;
-      const ox = 0;
-      const oy = 0;
-      const dw = OW;
-      const dh = OH;
-
+      // ── 6. LOOP DE GRABACIÓN ───────────────────────────────────────────────
       const duration = 10000;
       const startTime = Date.now();
 
@@ -159,16 +150,42 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         const elapsed = Date.now() - startTime;
         setRecordingProgress(Math.min((elapsed / duration) * 100, 100));
 
-        // 1. Static background + overlay (texts, QR, etc.)
-        ctx.drawImage(overlaySnapshot, ox, oy, dw, dh);
+        ctx.clearRect(0, 0, OW, OH);
 
-        // 2. Live animation canvas composited on top
-        if (animCanvas && animCanvas.width > 0) {
-          ctx.save();
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.drawImage(animCanvas, ox, oy, dw, dh);
-          ctx.restore();
+        // A) Fondo: color sólido o imagen precargada (objectFit: cover)
+        if (event.backgroundType === 'color' || !event.backgroundUrl) {
+          ctx.fillStyle = event.accentColor || '#111';
+          ctx.fillRect(0, 0, OW, OH);
+        } else if (event.backgroundType === 'image' && bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
+          // Replicar objectFit: cover
+          const imgW = bgImage.naturalWidth;
+          const imgH = bgImage.naturalHeight;
+          const scaleC = Math.max(OW / imgW, OH / imgH);
+          const sw = OW / scaleC;
+          const sh = OH / scaleC;
+          const sx = (imgW - sw) / 2;
+          const sy = (imgH - sh) / 2;
+          ctx.drawImage(bgImage, sx, sy, sw, sh, 0, 0, OW, OH);
+        } else {
+          ctx.fillStyle = '#111';
+          ctx.fillRect(0, 0, OW, OH);
         }
+
+        // B) Gradiente overlay (igual al del div)
+        const grad = ctx.createLinearGradient(0, 0, 0, OH);
+        grad.addColorStop(0, 'rgba(0,0,0,0.15)');
+        grad.addColorStop(0.5, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.25)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, OW, OH);
+
+        // C) Canvas de animación en vivo
+        if (animCanvas && animCanvas.width > 0) {
+          ctx.drawImage(animCanvas, 0, 0, OW, OH);
+        }
+
+        // D) Textos + QR (snapshot estático, fondo transparente)
+        ctx.drawImage(overlaySnapshot, 0, 0, OW, OH);
 
         if (elapsed < duration && mediaRecorderRef.current?.state === 'recording') {
           animationFrameRef.current = requestAnimationFrame(drawFrame);
@@ -177,6 +194,9 @@ export default function CoverDisplay({ eventId }: CoverDisplayProps) {
         }
       };
 
+      // Dibujar un frame antes de arrancar el recorder para que no haya frame negro inicial
+      drawFrame();
+      mediaRecorder.start(100);
       animationFrameRef.current = requestAnimationFrame(drawFrame);
 
     } catch (err) {
