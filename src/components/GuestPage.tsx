@@ -553,8 +553,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 {/* Mesa label */ }
 <p style={
   {
-    fontSize: 13, letterSpacing: '.35em', textTransform: 'uppercase',
-      color: 'rgba(200,200,255,.85)', marginBottom: 12, textAlign: 'center', fontWeight: 500,
+    fontSize: 15, letterSpacing: '.35em', textTransform: 'uppercase',
+      color: 'rgba(220,220,255,.95)', marginBottom: 12, textAlign: 'center', fontWeight: 600,
         opacity: 0,
           animation: 'revealSubtitle 0.6s ease 0.1s both',
       }
@@ -672,8 +672,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 
 {/* Bienvenido */ }
 <p className="reveal-subtitle" style = {{
-  fontSize: 13, letterSpacing: '.25em', textTransform: 'uppercase',
-    color: 'rgba(180,200,255,.75)', marginBottom: 44, textAlign: 'center', fontWeight: 500,
+  fontSize: 15, letterSpacing: '.25em', textTransform: 'uppercase',
+    color: 'rgba(200,215,255,.92)', marginBottom: 44, textAlign: 'center', fontWeight: 600,
       }}>
   welcome
   < /p>
@@ -689,7 +689,7 @@ style = {{
         color: '#d4af37',
           fontFamily: 'Montserrat, sans-serif',
             fontWeight: 500,
-              fontSize: 12,
+              fontSize: 14,
                 letterSpacing: '.14em',
                   textTransform: 'uppercase',
                     padding: '15px 28px',
