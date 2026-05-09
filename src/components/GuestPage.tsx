@@ -544,8 +544,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 
 {/* Event name */ }
 <p className="reveal-label" style = {{
-  fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
-    color: 'rgba(180,150,55,.65)', marginBottom: 32, textAlign: 'center',
+  fontSize: 13, letterSpacing: '.22em', textTransform: 'uppercase',
+    color: 'rgba(212,175,55,.95)', marginBottom: 32, textAlign: 'center', fontWeight: 600,
       }}>
         ✦ { eventName } ✦
 </p>
@@ -553,8 +553,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 {/* Mesa label */ }
 <p style={
   {
-    fontSize: 11, letterSpacing: '.35em', textTransform: 'uppercase',
-      color: 'rgba(140,170,255,.45)', marginBottom: 12, textAlign: 'center',
+    fontSize: 13, letterSpacing: '.35em', textTransform: 'uppercase',
+      color: 'rgba(200,200,255,.85)', marginBottom: 12, textAlign: 'center', fontWeight: 500,
         opacity: 0,
           animation: 'revealSubtitle 0.6s ease 0.1s both',
       }
@@ -663,8 +663,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 {/* Guest name */ }
 <div className="reveal-name" style = {{ textAlign: 'center', marginBottom: 10 }}>
   <h1 className="guest-name" style = {{
-  fontSize: 'clamp(1.8rem,7vw,2.8rem)',
-    margin: 0,
+  fontSize: 'clamp(2rem,8vw,3.2rem)',
+    margin: 0, fontWeight: 400,
         }}>
   { guest.name } { guest.surname }
 </h1>
@@ -672,8 +672,8 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 
 {/* Bienvenido */ }
 <p className="reveal-subtitle" style = {{
-  fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase',
-    color: 'rgba(140,170,255,.4)', marginBottom: 44, textAlign: 'center',
+  fontSize: 13, letterSpacing: '.25em', textTransform: 'uppercase',
+    color: 'rgba(180,200,255,.75)', marginBottom: 44, textAlign: 'center', fontWeight: 500,
       }}>
   welcome
   < /p>
@@ -1046,16 +1046,16 @@ return (
     <style>{ styles } < /style><div className="aurora-bg" / > <StarField />
     < div style = {{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
       <div className="fade-in-up" style = {{ textAlign: 'center', marginBottom: 32 }}>
-        <div style={ { fontSize: 11, letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(140,110,60,.7)', marginBottom: 14 } }>✦ Welcome ✦</div>
-          < h1 style = {{ fontFamily: 'Cormorant Garamond,serif', fontWeight: 400, fontSize: 'clamp(2rem,9vw,3rem)', color: '#3a2e22', lineHeight: 1.2, marginBottom: 8 }}>
+        <div style={ { fontSize: 13, letterSpacing: '.28em', textTransform: 'uppercase', color: 'rgba(120,90,40,.85)', marginBottom: 14, fontWeight: 600 } }>✦ Welcome ✦</div>
+          < h1 style = {{ fontFamily: 'Cormorant Garamond,serif', fontWeight: 600, fontSize: 'clamp(2.2rem,9vw,3.2rem)', color: '#2a1f12', lineHeight: 1.2, marginBottom: 8 }}>
             { event.name || 'Tu Evento' }
             < /h1>
 {
-  event.hostName && <p style={ { color: '#9a7a45', fontSize: 14, letterSpacing: '.06em', marginBottom: 4, fontFamily: 'Cormorant Garamond,serif', fontStyle: 'italic', fontWeight: 400 } }> { event.hostName } < /p>}
+  event.hostName && <p style={ { color: '#8a6020', fontSize: 17, letterSpacing: '.06em', marginBottom: 4, fontFamily: 'Cormorant Garamond,serif', fontStyle: 'italic', fontWeight: 600 } }> { event.hostName } < /p>}
   {
-    event.eventDate && <p style={ { color: 'rgba(100,80,50,.55)', fontSize: 12, letterSpacing: '.12em' } }> { event.eventDate } < /p>}
+    event.eventDate && <p style={ { color: 'rgba(80,60,30,.8)', fontSize: 13, letterSpacing: '.14em', fontWeight: 500 } }> { event.eventDate } < /p>}
     {
-      event.venue && <p style={ { color: 'rgba(100,80,50,.45)', fontSize: 11, letterSpacing: '.08em', marginTop: 2 } }> { event.venue } < /p>}
+      event.venue && <p style={ { color: 'rgba(80,60,30,.75)', fontSize: 12, letterSpacing: '.1em', marginTop: 2, fontWeight: 500 } }> { event.venue } < /p>}
         < /div>
         < div className = "gold-line" style = {{ marginBottom: 28 }
     } />
@@ -1154,7 +1154,7 @@ style = {{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap:
     < /button>
 
     < /div>
-    < div style = {{ textAlign: 'center', marginTop: 24, color: 'rgba(140,110,60,.5)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase' }
+    < div style = {{ textAlign: 'center', marginTop: 24, color: 'rgba(110,80,30,.8)', fontSize: 12, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 600 }
 }>
     ✦ Experiencias que perduran ✦
 < /div>
