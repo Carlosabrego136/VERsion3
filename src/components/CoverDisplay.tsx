@@ -274,9 +274,8 @@ const animation = (event.coverConfig?.animation as AnimationType) || 'none';
 const guestPageUrl = `${window.location.origin}${window.location.pathname}#guest/${eventId}`;
 const isRotated90 = Math.abs(rotation % 180) === 90;
 
-// En móvil (pantalla angosta): escalar para llenar el ancho completo
-// En escritorio: contener todo el canvas sin recortar
-// Detectamos móvil por ancho < 768px
+// En móvil: Math.max para llenar toda la pantalla sin barras negras
+// En escritorio: Math.min para que todo el canvas quepa sin recortar
 const isMobile = vw < 768;
 
 let scale: number;
@@ -287,8 +286,7 @@ if (isRotated90) {
 } else {
   const scaleW = vw / CW;
   const scaleH = vh / CH;
-  // En móvil vertical: escalar por ancho para llenar sin barras negras
-  scale = isMobile ? scaleW : Math.min(scaleW, scaleH);
+  scale = isMobile ? Math.max(scaleW, scaleH) : Math.min(scaleW, scaleH);
 }
 
 const normalizedDeg = ((rotation % 360) + 360) % 360;
