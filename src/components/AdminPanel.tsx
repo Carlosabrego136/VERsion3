@@ -180,7 +180,7 @@ return (
   < div className = "bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40" >
     <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between" >
       <button onClick={ () => { setCurrentEventId(null); setEvent(null); } } className = "text-gray-500 hover:text-gray-700 transition-colors text-sm font-medium" >
-            & larr; Eventos
+            ← Eventos
   < /button>
   < h1 className = "font-bold text-gray-800" > { event.name || 'Nuevo Evento' } < /h1>
     < button
@@ -257,7 +257,7 @@ className = {`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
               < /div>
 
               < button onClick = {() => setStep(2)} className = "w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all" >
-                Siguiente: Portada & rarr;
+                Siguiente: Portada →
 </button>
   < /div>
         )}
@@ -284,10 +284,10 @@ guestPageUrl = { guestPageUrl }
   />
   <div className="flex gap-3" >
     <button onClick={ () => setStep(1) } className = "flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all" >
-                & larr; Atras
+                ← Atras
   < /button>
   < button onClick = {() => setStep(3)} className = "flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all" >
-    Siguiente: Invitados & rarr;
+    Siguiente: Invitados →
 </button>
   < /div>
   < /div>
@@ -301,10 +301,10 @@ guestPageUrl = { guestPageUrl }
 } key = { guestRefreshKey } />
   <div className="flex gap-3" >
     <button onClick={ () => setStep(2) } className = "flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all" >
-                & larr; Atras
+                ← Atras
   < /button>
   < button onClick = {() => setStep(4)} className = "flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all" >
-    Siguiente: Mesas & rarr;
+    Siguiente: Mesas →
 </button>
   < /div>
   < /div>
@@ -317,11 +317,11 @@ guestPageUrl = { guestPageUrl }
       <TableMapEditor key={ `map-${event.id}-${step}` } eventId = { event.id } />
         <div className = "flex gap-3" >
           <button onClick={ () => setStep(3) } className = "flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all" >
-                & larr; Atras
+                ← Atras
     < /button>
     < button onClick = {() => setStep(5)
 } className = "flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all" >
-  Siguiente: Videos & rarr;
+  Siguiente: Videos →
 </button>
   < /div>
   < /div>
@@ -334,11 +334,11 @@ guestPageUrl = { guestPageUrl }
       <VideoManager eventId={ event.id } />
         < div className = "flex gap-3" >
           <button onClick={ () => setStep(4) } className = "flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all" >
-                & larr; Atras
+                ← Atras
     < /button>
     < button onClick = {() => setStep(6)
 } className = "flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all" >
-  Siguiente: Pantalla & rarr;
+  Siguiente: Pantalla →
 </button>
   < /div>
   < /div>
@@ -403,7 +403,7 @@ className = "flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl 
     < /div>
 
     < button onClick = {() => setStep(5)} className = "w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all" >
-              & larr; Atras
+              ← Atras
   < /button>
   < /div>
         )}
