@@ -553,10 +553,11 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 {/* Mesa label */ }
 <p style={
   {
-    fontSize: 15, letterSpacing: '.35em', textTransform: 'uppercase',
-      color: 'rgba(220,220,255,.95)', marginBottom: 12, textAlign: 'center', fontWeight: 600,
+    fontSize: 22, letterSpacing: '.28em', textTransform: 'uppercase',
+      color: '#ffffff', marginBottom: 12, textAlign: 'center', fontWeight: 700,
         opacity: 0,
           animation: 'revealSubtitle 0.6s ease 0.1s both',
+            textShadow: '0 0 18px rgba(212,175,55,.75), 0 2px 8px rgba(0,0,0,.5)',
       }
 }>
   your table
@@ -672,8 +673,9 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
 
 {/* Bienvenido */ }
 <p className="reveal-subtitle" style = {{
-  fontSize: 15, letterSpacing: '.25em', textTransform: 'uppercase',
-    color: 'rgba(200,215,255,.92)', marginBottom: 44, textAlign: 'center', fontWeight: 600,
+  fontSize: 20, letterSpacing: '.3em', textTransform: 'uppercase',
+    color: '#ffffff', marginBottom: 44, textAlign: 'center', fontWeight: 700,
+      textShadow: '0 0 14px rgba(212,175,55,.6), 0 2px 6px rgba(0,0,0,.45)',
       }}>
   welcome
   < /p>
@@ -1097,11 +1099,11 @@ onBlur = { () => setTimeout(() => setShowSuggestions(false), 150) }
 {
   showSuggestions && (
     <div style = {
-      {
-        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 99,
-          background: 'rgba(255,252,247,0.99)', border: '1px solid rgba(160,130,80,.25)',
-            borderRadius: 14, overflow: 'hidden', marginTop: 4,
-              boxShadow: '0 8px 32px rgba(100,80,40,.18)',
+    {
+      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 99,
+        background: 'rgba(255,252,247,0.99)', border: '1px solid rgba(160,130,80,.25)',
+          borderRadius: 14, overflow: 'hidden', marginTop: 4,
+            boxShadow: '0 8px 32px rgba(100,80,40,.18)',
         }
   }>
   {
