@@ -24,6 +24,19 @@ interface CoverEditorProps {
 const CW = 360;
 const CH = 640;
 
+// Fuentes disponibles (valor = font-family CSS)
+const FONT_OPTIONS = [
+  { value: 'serif', label: 'Serif (clásica)' },
+  { value: 'sans-serif', label: 'Sans (moderna)' },
+  { value: 'cursive', label: 'Cursiva' },
+  { value: 'monospace', label: 'Mono' },
+  { value: 'Great Vibes', label: 'Great Vibes ✨' },
+  { value: 'Playfair Display', label: 'Playfair Display' },
+  { value: 'Dancing Script', label: 'Dancing Script 💃' },
+  { value: 'Cinzel', label: 'Cinzel (elegante)' },
+  { value: 'Raleway', label: 'Raleway (fina)' },
+];
+
 export default function CoverEditor({
   eventId,
   accentColor,
@@ -53,6 +66,9 @@ export default function CoverEditor({
 
   // Drag state
   const draggingRef = useRef<{ id: string | 'qr'; offsetX: number; offsetY: number } | null>(null);
+  // Para detectar si realmente se arrastró o fue solo click
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const hasDraggedRef = useRef(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const editorScaleRef = useRef(1);
 
@@ -60,7 +76,6 @@ export default function CoverEditor({
     getCoverElements(eventId).then(els => setElements(els));
   }, [eventId]);
 
-  // Calculate the scale of the editor div (it's CSS-scaled from CW x CH)
   const getEditorScale = useCallback(() => {
     if (!editorRef.current) return 1;
     return editorRef.current.getBoundingClientRect().width / CW;
@@ -77,13 +92,24 @@ export default function CoverEditor({
       offsetX: (e.clientX - rect.left) / scale,
       offsetY: (e.clientY - rect.top) / scale,
     };
+    // Guardar posición inicial para detectar si es click o drag
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+    hasDraggedRef.current = false;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    if (id !== 'qr') setSelectedElement(id);
   }, [getEditorScale]);
 
   const onPointerMoveEditor = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current || !editorRef.current) return;
     e.preventDefault();
+
+    // Solo activar drag si se movió más de 5px (evita mover al hacer click)
+    if (dragStartPosRef.current) {
+      const dx = Math.abs(e.clientX - dragStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - dragStartPosRef.current.y);
+      if (dx < 5 && dy < 5) return;
+      hasDraggedRef.current = true;
+    }
+
     const scale = editorScaleRef.current;
     const rect = editorRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(CW - 10, (e.clientX - rect.left) / scale - draggingRef.current.offsetX));
@@ -99,18 +125,43 @@ export default function CoverEditor({
     }
   }, [onQrPositionChange]);
 
-  // Save position only once when drag ends — not on every pixel move
-  const onPointerUpEditor = useCallback(() => {
-    if (draggingRef.current && draggingRef.current.id !== 'qr') {
+  const onPointerUpEditor = useCallback((e?: React.PointerEvent) => {
+    if (draggingRef.current) {
       const id = draggingRef.current.id;
-      setElements(prev => {
-        const el = prev.find(e => e.id === id);
-        if (el) saveCoverElement(el).catch(err => console.error('saveCoverElement drag error:', err));
-        return prev;
-      });
+
+      if (hasDraggedRef.current && id !== 'qr') {
+        // Solo guardar si realmente se arrastró
+        setElements(prev => {
+          const el = prev.find(el => el.id === id);
+          if (el) saveCoverElement(el).catch(err => console.error('saveCoverElement drag error:', err));
+          return prev;
+        });
+      } else if (!hasDraggedRef.current && id !== 'qr') {
+        // Fue click — solo seleccionar
+        setSelectedElement(id);
+      }
     }
     draggingRef.current = null;
+    dragStartPosRef.current = null;
+    hasDraggedRef.current = false;
   }, []);
+
+  // Actualizar propiedad de un elemento seleccionado y guardar en Supabase
+  const updateSelectedStyle = useCallback((key: string, value: string | number) => {
+    if (!selectedElement) return;
+    setElements(prev => {
+      const updated = prev.map(el => {
+        if (el.id !== selectedElement) return el;
+        const newEl: CoverElement = {
+          ...el,
+          style: { ...el.style, [key]: String(value) },
+        };
+        saveCoverElement(newEl).catch(err => console.error('updateStyle error:', err));
+        return newEl;
+      });
+      return updated;
+    });
+  }, [selectedElement]);
 
   const addTextElement = () => {
     if (!newText.trim()) return;
@@ -131,7 +182,6 @@ export default function CoverEditor({
       animation: '',
       zIndex: elements.length + 1,
     };
-    // UI updates instantly — Supabase saves in background
     setElements(prev => [...prev, el]);
     setNewText('');
     saveCoverElement(el).catch(err => console.error('saveCoverElement text error:', err));
@@ -157,7 +207,6 @@ export default function CoverEditor({
           animation: '',
           zIndex: elements.length + 1,
         };
-        // UI updates instantly — Supabase saves in background
         setElements(prev => [...prev, el]);
         saveCoverElement(el).catch(err => console.error('saveCoverElement image error:', err));
       };
@@ -192,16 +241,12 @@ export default function CoverEditor({
   const selected = elements.find(el => el.id === selectedElement);
   const isRotated90 = Math.abs(previewRotation % 180) === 90;
 
-  // Preview scale: fit CW x CH canvas into a fixed preview area
-  // Preview box is always CW*ps wide, CH*ps tall (before rotation)
-  const ps = 0.38; // preview scale
+  const ps = 0.38;
   const scaledW = CW * ps;
   const scaledH = CH * ps;
-  // After rotation, the bounding box flips
   const previewBoxW = isRotated90 ? scaledH : scaledW;
   const previewBoxH = isRotated90 ? scaledW : scaledH;
 
-  // Shared canvas content (renders at CW x CH, no scaling applied here)
   const renderCanvas = (interactive: boolean, scale: number) => (
     <div
       style= {{
@@ -237,34 +282,33 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
 <div style={ { position: 'absolute', inset: 0, background: 'linear-gradient(to bottom,rgba(0,0,0,0.15),transparent,rgba(0,0,0,0.25))', pointerEvents: 'none' } } />
   < AnimationCanvas animation = { animation } accentColor = { accentColor } />
 
-    {/* Elements */ }
-{
-  elements.map(el => (
-    <div
+  {
+    elements.map(el => (
+      <div
           key= { el.id }
           style = {{
-    position: 'absolute',
-    left: el.position.x,
-    top: el.position.y,
-    zIndex: el.zIndex,
-    cursor: interactive ? 'grab' : 'default',
-    outline: interactive && selectedElement === el.id ? '2px solid #f59e0b' : 'none',
-    outlineOffset: 2,
-  }}
+      position: 'absolute',
+      left: el.position.x,
+      top: el.position.y,
+      zIndex: el.zIndex,
+      cursor: interactive ? 'grab' : 'default',
+      outline: interactive && selectedElement === el.id ? '2px solid #f59e0b' : 'none',
+      outlineOffset: 2,
+    }}
 onPointerDown = { interactive?(e) => onPointerDownElement(e, el.id) : undefined }
   >
 {
   el.elementType === 'text' && (
     <div style={
-  {
-    fontSize: `${el.style.fontSize || 24}px`,
-      color: String(el.style.color || '#fff'),
-        fontFamily: String(el.style.fontFamily || 'serif'),
-          fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-            fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                whiteSpace: 'nowrap',
-                  pointerEvents: 'none',
+      {
+        fontSize: `${el.style.fontSize || 24}px`,
+          color: String(el.style.color || '#fff'),
+            fontFamily: String(el.style.fontFamily || 'serif'),
+              fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+                fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                    whiteSpace: 'nowrap',
+                      pointerEvents: 'none',
             }
 }>
   { el.content }
@@ -288,22 +332,104 @@ onPointerDown = { interactive?(e) => onPointerDownElement(e, 'qr'): undefined }
       </div>
       < /div>
 
-{/* Selection toolbar — only in editor */ }
+{/* Panel de edición del elemento seleccionado — solo en editor */ }
 {
-  interactive && selected && (
-    <div style={ { position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '5px 10px', display: 'flex', gap: 8, zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' } }>
-      <button
-            onPointerDown={ e => e.stopPropagation() }
-  onClick = {() => removeElement(selected.id)
-}
+  interactive && selected && selected.elementType === 'text' && (
+    <div
+          style={
+    {
+      position: 'absolute',
+        bottom: 10,
+          left: '50%',
+            transform: 'translateX(-50%)',
+              background: 'rgba(255,255,255,0.97)',
+                borderRadius: 10,
+                  padding: '8px 12px',
+                    display: 'flex',
+                      gap: 8,
+                        alignItems: 'center',
+                          zIndex: 200,
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+                              flexWrap: 'wrap',
+                                maxWidth: 340,
+          }
+  }
+  onPointerDown = { e => e.stopPropagation() }
+    >
+    {/* Tamaño de fuente */ }
+    < label style = {{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#374151' }
+}>
+  Tam:
+<input
+              type="number"
+min = { 8}
+max = { 120}
+value = { Number(selected.style.fontSize) || 24}
+onChange = { e => updateSelectedStyle('fontSize', + e.target.value)}
+style = {{ width: 52, padding: '2px 6px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12 }}
+/>
+  < /label>
+{/* Color */ }
+<label style={ { display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#374151' } }>
+  Color:
+<input
+              type="color"
+value = { String(selected.style.color || '#ffffff') }
+onChange = { e => updateSelectedStyle('color', e.target.value) }
+style = {{ width: 28, height: 28, border: 'none', cursor: 'pointer', borderRadius: 4 }}
+/>
+  < /label>
+{/* Fuente */ }
+<select
+            value={ String(selected.style.fontFamily || 'serif') }
+onChange = { e => updateSelectedStyle('fontFamily', e.target.value) }
+style = {{ padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 11 }}
+          >
+{
+  FONT_OPTIONS.map(f => (
+    <option key= { f.value } value = { f.value } style = {{ fontFamily: f.value }} > { f.label } < /option>
+            ))}
+</select>
+{/* Bold */ }
+<button
+            onClick={ () => updateSelectedStyle('bold', selected.style.bold === 'true' ? 'false' : 'true') }
+style = {{
+  padding: '3px 8px', borderRadius: 6, fontSize: 13, fontWeight: 'bold', border: '1px solid #d1d5db', cursor: 'pointer',
+    background: selected.style.bold === 'true' ? '#f59e0b' : '#f3f4f6',
+      color: selected.style.bold === 'true' ? 'white' : '#374151',
+            }}
+          > B < /button>
+{/* Italic */ }
+<button
+            onClick={ () => updateSelectedStyle('italic', selected.style.italic === 'true' ? 'false' : 'true') }
+style = {{
+  padding: '3px 8px', borderRadius: 6, fontSize: 13, fontStyle: 'italic', border: '1px solid #d1d5db', cursor: 'pointer',
+    background: selected.style.italic === 'true' ? '#f59e0b' : '#f3f4f6',
+      color: selected.style.italic === 'true' ? 'white' : '#374151',
+            }}
+          > I < /button>
+  < button
+onClick = {() => removeElement(selected.id)}
 style = {{ padding: '3px 10px', background: '#ef4444', color: 'white', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
           > Eliminar < /button>
   < button
-onPointerDown = { e => e.stopPropagation() }
 onClick = {() => setSelectedElement(null)}
 style = {{ padding: '3px 10px', background: '#e5e7eb', color: '#374151', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
           > Cerrar < /button>
   < /div>
+      )}
+
+{/* Panel para elementos que no son texto (imagen) */ }
+{
+  interactive && selected && selected.elementType !== 'text' && (
+    <div
+          style={ { position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '5px 10px', display: 'flex', gap: 8, zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' } }
+  onPointerDown = { e => e.stopPropagation() }
+    >
+    <button onClick={ () => removeElement(selected.id) } style = {{ padding: '3px 10px', background: '#ef4444', color: 'white', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }
+}> Eliminar < /button>
+  < button onClick = {() => setSelectedElement(null)} style = {{ padding: '3px 10px', background: '#e5e7eb', color: '#374151', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}> Cerrar < /button>
+    < /div>
       )}
 </div>
   );
@@ -337,25 +463,25 @@ className = "flex-1 min-w-[140px] px-3 py-2 border border-gray-200 rounded-lg te
   />
   <input type="number" value = { newTextStyle.fontSize } onChange = { e => setNewTextStyle(p => ({ ...p, fontSize: +e.target.value }))} className = "w-14 px-2 py-2 border border-gray-200 rounded-lg text-sm" min = "8" max = "120" />
     <input type="color" value = { newTextStyle.color } onChange = { e => setNewTextStyle(p => ({ ...p, color: e.target.value }))} className = "w-8 h-8 rounded cursor-pointer border-0" />
-      <select value={ newTextStyle.fontFamily } onChange = { e => setNewTextStyle(p => ({ ...p, fontFamily: e.target.value }))} className = "px-2 py-2 border border-gray-200 rounded-lg text-sm" >
-        <option value="serif" > Serif < /option>
-          < option value = "sans-serif" > Sans < /option>
-            < option value = "cursive" > Cursiva < /option>
-              < option value = "monospace" > Mono < /option>
-                < /select>
-                < button onClick = {() => setNewTextStyle(p => ({ ...p, bold: !p.bold }))} className = {`px-2 py-2 rounded-lg text-sm font-bold border ${newTextStyle.bold ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}> B < /button>
-                  < button onClick = {() => setNewTextStyle(p => ({ ...p, italic: !p.italic }))} className = {`px-2 py-2 rounded-lg text-sm italic border ${newTextStyle.italic ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}> I < /button>
-                    < button onClick = { addTextElement } className = "px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors" >
-                      + Texto
-                      < /button>
-                      < button onClick = { addImageElement } className = "px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors" >
-                        + Imagen
-                        < /button>
-                        < /div>
+      <select
+            value={ newTextStyle.fontFamily }
+onChange = { e => setNewTextStyle(p => ({ ...p, fontFamily: e.target.value }))}
+className = "px-2 py-2 border border-gray-200 rounded-lg text-sm"
+  >
+{
+  FONT_OPTIONS.map(f => (
+    <option key= { f.value } value = { f.value } style = {{ fontFamily: f.value }} > { f.label } < /option>
+            ))}
+</select>
+  < button onClick = {() => setNewTextStyle(p => ({ ...p, bold: !p.bold }))} className = {`px-2 py-2 rounded-lg text-sm font-bold border ${newTextStyle.bold ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}> B < /button>
+    < button onClick = {() => setNewTextStyle(p => ({ ...p, italic: !p.italic }))} className = {`px-2 py-2 rounded-lg text-sm italic border ${newTextStyle.italic ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}> I < /button>
+      < button onClick = { addTextElement } className = "px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors" > + Texto < /button>
+        < button onClick = { addImageElement } className = "px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors" > + Imagen < /button>
+          < /div>
 
-                        < div className = "flex flex-wrap gap-4 items-center" >
-                          <label className="flex items-center gap-2 text-sm text-gray-600" >
-                            Animación:
+          < div className = "flex flex-wrap gap-4 items-center" >
+            <label className="flex items-center gap-2 text-sm text-gray-600" >
+              Animación:
 <select value={ animation } onChange = { e => onAnimationChange(e.target.value as AnimationType) } className = "px-2 py-1.5 border border-gray-200 rounded-lg text-sm" >
 {
   ANIMATION_OPTIONS.map(opt => <option key={ opt.value } value = { opt.value } > { opt.label } < /option>)}
@@ -414,37 +540,35 @@ className = {`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${p
 </div>
   < /div>
 
-{/* Outer box exactly matches the rotated canvas bounding box */ }
-<div
-            style={
-  {
-    width: previewBoxW,
-      height: previewBoxH,
-        position: 'relative',
-          overflow: 'hidden',
-            borderRadius: 12,
-              border: '2.5px solid #1f2937',
-                background: '#000',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-            }
-}
-          >
-  {/* Center + rotate the scaled canvas */ }
   < div
 style = {{
-  position: 'absolute',
-    top: '50%',
-      left: '50%',
-        width: scaledW,
-          height: scaledH,
-            marginLeft: -scaledW / 2,
-              marginTop: -scaledH / 2,
-                transform: `rotate(${previewRotation}deg)`,
-                  transformOrigin: 'center center',
-                    transition: 'transform 0.35s ease',
-                      overflow: 'hidden',
-                        borderRadius: 4,
-              }}
+  width: previewBoxW,
+    height: previewBoxH,
+      position: 'relative',
+        overflow: 'hidden',
+          borderRadius: 12,
+            border: '2.5px solid #1f2937',
+              background: '#000',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+            }}
+          >
+  <div
+              style={
+  {
+    position: 'absolute',
+      top: '50%',
+        left: '50%',
+          width: scaledW,
+            height: scaledH,
+              marginLeft: -scaledW / 2,
+                marginTop: -scaledH / 2,
+                  transform: `rotate(${previewRotation}deg)`,
+                    transformOrigin: 'center center',
+                      transition: 'transform 0.35s ease',
+                        overflow: 'hidden',
+                          borderRadius: 4,
+              }
+}
             >
   { renderCanvas(false, ps) }
   < /div>
