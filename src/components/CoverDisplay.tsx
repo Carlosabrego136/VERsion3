@@ -274,17 +274,21 @@ const animation = (event.coverConfig?.animation as AnimationType) || 'none';
 const guestPageUrl = `${window.location.origin}${window.location.pathname}#guest/${eventId}`;
 const isRotated90 = Math.abs(rotation % 180) === 90;
 
-// Usar min para que todo el canvas sea visible (sin recortar)
-// en ambas orientaciones, tanto en móvil como en escritorio.
+// En móvil (pantalla angosta): escalar para llenar el ancho completo
+// En escritorio: contener todo el canvas sin recortar
+// Detectamos móvil por ancho < 768px
+const isMobile = vw < 768;
+
 let scale: number;
 if (isRotated90) {
   const scaleW = vw / CH;
   const scaleH = vh / CW;
-  scale = Math.min(scaleW, scaleH);
+  scale = isMobile ? Math.max(scaleW, scaleH) : Math.min(scaleW, scaleH);
 } else {
   const scaleW = vw / CW;
   const scaleH = vh / CH;
-  scale = Math.min(scaleW, scaleH);
+  // En móvil vertical: escalar por ancho para llenar sin barras negras
+  scale = isMobile ? scaleW : Math.min(scaleW, scaleH);
 }
 
 const normalizedDeg = ((rotation % 360) + 360) % 360;
@@ -366,11 +370,11 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
 
 {/* QR con QRCodeCanvas — canvas nativo, se puede dibujar directamente en grabación */ }
 <div style={ { position: 'absolute', left: event.qrPosition.x, top: event.qrPosition.y, zIndex: 50 } }>
-  <div style={ { background: 'white', padding: 10, borderRadius: 12, display: 'inline-flex', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } }>
+  <div style={ { background: 'white', padding: 8, borderRadius: 10, width: event.qrSize, height: event.qrSize, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } }>
     <QRCodeCanvas
               ref={ qrCanvasRef }
 value = { guestPageUrl }
-size = { event.qrSize }
+size = { Math.max(20, event.qrSize - 16) }
   />
   </div>
   < /div>
