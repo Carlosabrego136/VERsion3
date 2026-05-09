@@ -315,21 +315,23 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
       cursor: interactive ? 'grab' : 'default',
       outline: interactive && selectedElement === el.id ? '2px solid #f59e0b' : 'none',
       outlineOffset: 2,
+      touchAction: interactive ? 'none' : 'auto',
+      userSelect: 'none',
     }}
 onPointerDown = { interactive?(e) => onPointerDownElement(e, el.id) : undefined }
   >
 {
   el.elementType === 'text' && (
     <div style={
-      {
-        fontSize: `${el.style.fontSize || 24}px`,
-          color: String(el.style.color || '#fff'),
-            fontFamily: String(el.style.fontFamily || 'serif'),
-              fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-                fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                  textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                    whiteSpace: 'nowrap',
-                      pointerEvents: 'none',
+  {
+    fontSize: `${el.style.fontSize || 24}px`,
+      color: String(el.style.color || '#fff'),
+        fontFamily: String(el.style.fontFamily || 'serif'),
+          fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+            fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
             }
 }>
   { el.content }
@@ -345,7 +347,7 @@ onPointerDown = { interactive?(e) => onPointerDownElement(e, el.id) : undefined 
 
 {/* QR */ }
 <div
-        style={ { position: 'absolute', left: (interactive && qrLocalPos ? qrLocalPos.x : qrPosition.x), top: (interactive && qrLocalPos ? qrLocalPos.y : qrPosition.y), cursor: interactive ? 'grab' : 'default', zIndex: 50 } }
+        style={ { position: 'absolute', left: (interactive && qrLocalPos ? qrLocalPos.x : qrPosition.x), top: (interactive && qrLocalPos ? qrLocalPos.y : qrPosition.y), cursor: interactive ? 'grab' : 'default', zIndex: 50, touchAction: 'none', userSelect: 'none' } }
 onPointerDown = { interactive?(e) => onPointerDownElement(e, 'qr'): undefined }
   >
   <div style={ { background: 'white', padding: 8, borderRadius: 10, width: qrSize, height: qrSize } }>
@@ -491,6 +493,7 @@ style = {{
             boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
               border: '1.5px solid #e5e7eb',
                 cursor: 'default',
+                  touchAction: 'none',
             }}
 onPointerMove = { onPointerMoveEditor }
 onPointerUp = { onPointerUpEditor }

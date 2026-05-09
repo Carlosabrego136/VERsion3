@@ -274,15 +274,17 @@ const animation = (event.coverConfig?.animation as AnimationType) || 'none';
 const guestPageUrl = `${window.location.origin}${window.location.pathname}#guest/${eventId}`;
 const isRotated90 = Math.abs(rotation % 180) === 90;
 
+// Usar min para que todo el canvas sea visible (sin recortar)
+// en ambas orientaciones, tanto en móvil como en escritorio.
 let scale: number;
 if (isRotated90) {
   const scaleW = vw / CH;
   const scaleH = vh / CW;
-  scale = Math.max(scaleW, scaleH);
+  scale = Math.min(scaleW, scaleH);
 } else {
   const scaleW = vw / CW;
   const scaleH = vh / CH;
-  scale = Math.max(scaleW, scaleH);
+  scale = Math.min(scaleW, scaleH);
 }
 
 const normalizedDeg = ((rotation % 360) + 360) % 360;
@@ -341,14 +343,14 @@ style = {{ position: 'absolute', inset: 0, width: '100%', height: '100%', object
   {
     el.elementType === 'text' && (
       <div style={
-        {
-          fontSize: `${el.style.fontSize || 24}px`,
-            color: String(el.style.color || '#fff'),
-              fontFamily: String(el.style.fontFamily || 'serif'),
-                fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
-                  fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
-                    textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                      whiteSpace: 'nowrap',
+  {
+    fontSize: `${el.style.fontSize || 24}px`,
+      color: String(el.style.color || '#fff'),
+        fontFamily: String(el.style.fontFamily || 'serif'),
+          fontWeight: el.style.bold === 'true' ? 'bold' : 'normal',
+            fontStyle: el.style.italic === 'true' ? 'italic' : 'normal',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                whiteSpace: 'nowrap',
               }
 }>
   { el.content }
@@ -378,19 +380,19 @@ size = { event.qrSize }
 {
   isRecording && (
     <div style={
-      {
-        position: 'fixed',
-          top: 20,
-            left: '50%',
-              transform: 'translateX(-50%)',
-                background: 'rgba(220, 38, 38, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                    borderRadius: 12,
-                      padding: '12px 20px',
-                        zIndex: 1000,
-                          display: 'flex',
-                            alignItems: 'center',
-                              gap: 12,
+    {
+      position: 'fixed',
+        top: 20,
+          left: '50%',
+            transform: 'translateX(-50%)',
+              background: 'rgba(220, 38, 38, 0.9)',
+                backdropFilter: 'blur(10px)',
+                  borderRadius: 12,
+                    padding: '12px 20px',
+                      zIndex: 1000,
+                        display: 'flex',
+                          alignItems: 'center',
+                            gap: 12,
         }
   }>
     <div style={ { width: 12, height: 12, borderRadius: '50%', background: '#fff', animation: 'pulse 1s infinite' } } />
