@@ -6,51 +6,55 @@ interface GuestPageProps { eventId: string; }
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
-  .guest-root { font-family:'Montserrat',sans-serif; background:#0a1f3d; min-height:100vh; color:#e4f0ff; }
+  .guest-root { font-family:'Montserrat',sans-serif; background:#f0ebe3; min-height:100vh; color:#3a2e22; }
   .aurora-bg { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
   .aurora-bg::before {
-    content:''; position:absolute; width:120%; height:120%; top:-10%; left:-10%;
-    background:radial-gradient(ellipse 80% 60% at 20% 20%,rgba(50,130,255,.45) 0%,transparent 60%),
-               radial-gradient(ellipse 60% 80% at 80% 80%,rgba(30,100,220,.35) 0%,transparent 60%);
-    animation:auroraA 18s ease-in-out infinite alternate;
+    content:''; position:absolute; width:100%; height:100%; top:0; left:0;
+    background:
+      radial-gradient(ellipse 90% 60% at 15% 0%,rgba(210,190,160,.55) 0%,transparent 55%),
+      radial-gradient(ellipse 70% 50% at 85% 100%,rgba(195,175,145,.4) 0%,transparent 55%),
+      radial-gradient(ellipse 50% 40% at 50% 50%,rgba(240,230,215,.3) 0%,transparent 70%);
+    animation:auroraA 20s ease-in-out infinite alternate;
   }
   .aurora-bg::after {
     content:''; position:absolute; inset:0;
-    background:radial-gradient(ellipse 40% 30% at 70% 30%,rgba(80,170,255,.18) 0%,transparent 60%),
-               radial-gradient(ellipse 30% 40% at 30% 70%,rgba(60,140,255,.14) 0%,transparent 60%);
-    animation:auroraB 22s ease-in-out infinite alternate;
+    background:
+      radial-gradient(ellipse 40% 30% at 80% 20%,rgba(220,200,165,.25) 0%,transparent 60%),
+      radial-gradient(ellipse 30% 40% at 20% 80%,rgba(200,180,150,.2) 0%,transparent 60%);
+    animation:auroraB 25s ease-in-out infinite alternate;
   }
-  @keyframes auroraA { 0%{transform:scale(1) rotate(0deg)} 100%{transform:scale(1.05) rotate(2deg)} }
-  @keyframes auroraB { 0%{transform:scale(1.05) rotate(-1deg)} 100%{transform:scale(1) rotate(1deg)} }
-  .stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
-  .star { position:absolute; background:white; border-radius:50%; animation:twinkle var(--dur) ease-in-out infinite alternate; opacity:0; }
-  @keyframes twinkle { 0%{opacity:0;transform:scale(.8)} 100%{opacity:var(--op);transform:scale(1.2)} }
-  .gold-line { height:1px; background:linear-gradient(90deg,transparent,rgba(212,175,55,.6),rgba(212,175,55,.9),rgba(212,175,55,.6),transparent); }
-  .glass-card { background:rgba(30,70,140,.45); border:1px solid rgba(140,200,255,.3); backdrop-filter:blur(24px); box-shadow:0 8px 40px rgba(0,0,0,.3),inset 0 1px 0 rgba(160,210,255,.2); border-radius:20px; }
-  .search-input { background:rgba(20,55,120,.5); border:1px solid rgba(120,180,255,.35); color:#e4f0ff; border-radius:12px; padding:14px 18px; width:100%; font-family:'Montserrat',sans-serif; font-size:14px; font-weight:300; outline:none; transition:all .3s ease; box-sizing:border-box; }
-  .search-input::placeholder { color:rgba(160,210,255,.45); }
-  .search-input:focus { border-color:rgba(180,150,55,.5); box-shadow:0 0 0 3px rgba(180,150,55,.08); }
-  .btn-primary { background:linear-gradient(135deg,#2a6fd4,#1a50a8,#2565c0); border:1px solid rgba(180,150,55,.4); color:#f0d060; font-family:'Montserrat',sans-serif; font-weight:500; font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:14px 28px; border-radius:12px; cursor:pointer; transition:all .3s ease; box-shadow:0 4px 20px rgba(30,80,200,.4); width:100%; }
-  .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
-  .btn-ghost { background:rgba(30,70,150,.4); border:1px solid rgba(120,180,255,.35); color:rgba(190,225,255,.9); font-family:'Montserrat',sans-serif; font-weight:400; font-size:12px; letter-spacing:.06em; padding:12px 20px; border-radius:10px; cursor:pointer; transition:all .3s ease; }
-  .btn-gold { background:linear-gradient(135deg,rgba(180,150,55,.2),rgba(212,175,55,.15)); border:1px solid rgba(212,175,55,.4); color:#d4af37; font-family:'Montserrat',sans-serif; font-weight:500; font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding:12px 20px; border-radius:10px; cursor:pointer; transition:all .3s ease; }
-  .guest-name { font-family:'Cormorant Garamond',serif; font-weight:300; font-style:italic; font-size:clamp(2rem,8vw,3.2rem); background:linear-gradient(135deg,#70b8ff 0%,#e4f0ff 40%,#d4af37 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; }
-  .table-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(180,150,55,.12); border:1px solid rgba(180,150,55,.3); color:#d4af37; font-size:12px; font-weight:500; letter-spacing:.12em; text-transform:uppercase; padding:6px 16px; border-radius:100px; }
-  .media-container { position:relative; width:100%; border-radius:16px; overflow:hidden; background:#000; box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px rgba(140,200,255,.2); }
+  @keyframes auroraA { 0%{transform:scale(1) rotate(0deg)} 100%{transform:scale(1.04) rotate(1.5deg)} }
+  @keyframes auroraB { 0%{transform:scale(1.03) rotate(-1deg)} 100%{transform:scale(1) rotate(.5deg)} }
+  .stars { display:none; }
+  .star { display:none; }
+  @keyframes twinkle { 0%{opacity:0} 100%{opacity:0} }
+  .gold-line { height:1px; background:linear-gradient(90deg,transparent,rgba(160,120,60,.5),rgba(180,140,70,.8),rgba(160,120,60,.5),transparent); }
+  .glass-card { background:rgba(255,252,247,.92); border:1px solid rgba(180,150,100,.2); backdrop-filter:blur(20px); box-shadow:0 8px 40px rgba(100,80,40,.12),inset 0 1px 0 rgba(255,255,255,.8); border-radius:24px; }
+  .search-input { background:rgba(255,255,255,.7); border:1.5px solid rgba(180,150,100,.25); color:#3a2e22; border-radius:14px; padding:15px 18px 15px 44px; width:100%; font-family:'Montserrat',sans-serif; font-size:14px; font-weight:400; outline:none; transition:all .3s ease; box-sizing:border-box; }
+  .search-input::placeholder { color:rgba(120,100,70,.45); }
+  .search-input:focus { border-color:rgba(160,120,60,.6); box-shadow:0 0 0 3px rgba(160,120,60,.08); background:rgba(255,255,255,.95); }
+  .btn-primary { background:linear-gradient(135deg,#9a7a45,#7a5e30,#8a6d3a); border:none; color:#fff8ee; font-family:'Montserrat',sans-serif; font-weight:600; font-size:13px; letter-spacing:.12em; text-transform:uppercase; padding:16px 28px; border-radius:14px; cursor:pointer; transition:all .3s ease; box-shadow:0 4px 20px rgba(120,90,40,.35); width:100%; }
+  .btn-primary:hover { background:linear-gradient(135deg,#b08a50,#8a6a38,#9a7a42); box-shadow:0 6px 28px rgba(120,90,40,.45); transform:translateY(-1px); }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .btn-ghost { background:rgba(160,130,80,.1); border:1px solid rgba(160,130,80,.3); color:#7a5e30; font-family:'Montserrat',sans-serif; font-weight:500; font-size:12px; letter-spacing:.06em; padding:12px 20px; border-radius:12px; cursor:pointer; transition:all .3s ease; }
+  .btn-gold { background:linear-gradient(135deg,rgba(160,130,60,.15),rgba(180,150,70,.1)); border:1px solid rgba(160,130,60,.35); color:#8a6a2a; font-family:'Montserrat',sans-serif; font-weight:500; font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding:12px 20px; border-radius:12px; cursor:pointer; transition:all .3s ease; }
+  .guest-name { font-family:'Cormorant Garamond',serif; font-weight:400; font-style:italic; font-size:clamp(2rem,8vw,3.2rem); color:#8a6a2a; line-height:1.2; -webkit-text-fill-color:#8a6a2a; }
+  .table-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(160,130,60,.1); border:1px solid rgba(160,130,60,.3); color:#8a6a2a; font-size:12px; font-weight:500; letter-spacing:.12em; text-transform:uppercase; padding:6px 16px; border-radius:100px; }
+  .media-container { position:relative; width:100%; border-radius:16px; overflow:hidden; background:#1a1410; box-shadow:0 8px 40px rgba(0,0,0,.3),0 0 0 1px rgba(160,130,80,.2); }
   .media-container video,.media-container img { width:100%; display:block; max-height:72vh; object-fit:contain; }
-  .map-canvas-wrap { position:relative; border-radius:16px; overflow:hidden; background:#0e2545; border:1px solid rgba(120,180,255,.3); box-shadow:0 8px 40px rgba(0,0,0,.4); touch-action:none; }
+  .map-canvas-wrap { position:relative; border-radius:16px; overflow:hidden; background:#f5f0e8; border:1px solid rgba(160,130,80,.25); box-shadow:0 8px 40px rgba(100,80,40,.15); touch-action:none; }
   .map-fullscreen { position:fixed!important; inset:0!important; border-radius:0!important; z-index:9999!important; }
-  .map-btn { background:rgba(20,55,130,.88); border:1px solid rgba(120,180,255,.4); color:#a8d4ff; font-family:'Montserrat',sans-serif; cursor:pointer; backdrop-filter:blur(12px); }
-  .spinner { width:44px; height:44px; border:2px solid rgba(120,180,255,.2); border-top-color:#d4af37; border-right-color:rgba(120,180,255,.7); border-radius:50%; animation:spin 1s linear infinite; }
+  .map-btn { background:rgba(255,252,247,.92); border:1px solid rgba(160,130,80,.3); color:#7a5e30; font-family:'Montserrat',sans-serif; cursor:pointer; backdrop-filter:blur(12px); }
+  .spinner { width:44px; height:44px; border:2px solid rgba(160,130,80,.2); border-top-color:#9a7a45; border-right-color:rgba(160,130,80,.5); border-radius:50%; animation:spin 1s linear infinite; }
   @keyframes spin { to{transform:rotate(360deg)} }
   .fade-in { animation:fadeIn .6s ease forwards; }
   .fade-in-up { animation:fadeInUp .7s ease forwards; }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   @keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-  .ornament { display:flex; align-items:center; gap:12px; color:rgba(180,150,55,.5); font-size:10px; letter-spacing:.2em; }
-  .ornament::before,.ornament::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(180,150,55,.3)); }
-  .ornament::after { background:linear-gradient(90deg,rgba(180,150,55,.3),transparent); }
-  label.field-label { display:block; font-size:10px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:rgba(140,170,255,.6); margin-bottom:8px; }
+  .ornament { display:flex; align-items:center; gap:12px; color:rgba(140,110,60,.6); font-size:10px; letter-spacing:.2em; }
+  .ornament::before,.ornament::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(140,110,60,.3)); }
+  .ornament::after { background:linear-gradient(90deg,rgba(140,110,60,.3),transparent); }
+  label.field-label { display:block; font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:rgba(100,80,45,.7); margin-bottom:8px; }
 
   /* ── REVEAL ANIMATION ── */
   @keyframes revealTableNum {
@@ -1038,34 +1042,38 @@ getMarkerIcon = { getMarkerIcon }
 
 // SEARCH
 return (
-  <div className= "guest-root fade-in" style = {{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+  <div className= "guest-root fade-in" style = {{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 20px', background: '#f0ebe3' }}>
     <style>{ styles } < /style><div className="aurora-bg" / > <StarField />
     < div style = {{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
       <div className="fade-in-up" style = {{ textAlign: 'center', marginBottom: 32 }}>
-        <div style={ { fontSize: 11, letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(180,150,55,.7)', marginBottom: 14 } }>✦ Welcome ✦</div>
-          < h1 style = {{ fontFamily: 'Cormorant Garamond,serif', fontWeight: 300, fontSize: 'clamp(2rem,9vw,3rem)', color: '#e8f0fe', lineHeight: 1.2, marginBottom: 8 }}>
+        <div style={ { fontSize: 11, letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(140,110,60,.7)', marginBottom: 14 } }>✦ Welcome ✦</div>
+          < h1 style = {{ fontFamily: 'Cormorant Garamond,serif', fontWeight: 400, fontSize: 'clamp(2rem,9vw,3rem)', color: '#3a2e22', lineHeight: 1.2, marginBottom: 8 }}>
             { event.name || 'Tu Evento' }
             < /h1>
 {
-  event.hostName && <p style={ { color: 'rgba(180,150,55,.8)', fontSize: 13, letterSpacing: '.06em', marginBottom: 4 } }> { event.hostName } < /p>}
+  event.hostName && <p style={ { color: '#9a7a45', fontSize: 14, letterSpacing: '.06em', marginBottom: 4, fontFamily: 'Cormorant Garamond,serif', fontStyle: 'italic', fontWeight: 400 } }> { event.hostName } < /p>}
   {
-    event.eventDate && <p style={ { color: 'rgba(140,170,255,.4)', fontSize: 12, letterSpacing: '.08em' } }> { event.eventDate } < /p>}
+    event.eventDate && <p style={ { color: 'rgba(100,80,50,.55)', fontSize: 12, letterSpacing: '.12em' } }> { event.eventDate } < /p>}
     {
-      event.venue && <p style={ { color: 'rgba(140,170,255,.35)', fontSize: 11, letterSpacing: '.06em', marginTop: 2 } }> { event.venue } < /p>}
+      event.venue && <p style={ { color: 'rgba(100,80,50,.45)', fontSize: 11, letterSpacing: '.08em', marginTop: 2 } }> { event.venue } < /p>}
         < /div>
         < div className = "gold-line" style = {{ marginBottom: 28 }
     } />
-      < div className = "glass-card fade-in-up" style = {{ padding: '28px 24px', animationDelay: '.15s' }
+      < div className = "glass-card fade-in-up" style = {{ padding: '32px 28px', animationDelay: '.15s' }
   }>
-    <div className="ornament" style = {{ marginBottom: 24 }
-}> FIND YOUR SEAT < /div>
-  < div style = {{ marginBottom: 14, position: 'relative' }}>
-    <label className="field-label" > Name < /label>
-      < input
+    <div className="ornament" style = {{ marginBottom: 28 }
+}> BUSCA TU LUGAR < /div>
+
+{/* Input NOMBRE con icono */ }
+<div style = { { marginBottom: 18, position: 'relative' } }>
+  <label className="field-label" > NOMBRE < /label>
+    < div style = {{ position: 'relative' }}>
+      <svg style={ { position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', opacity: .4, pointerEvents: 'none' } } width = "16" height = "16" viewBox = "0 0 24 24" fill = "none" stroke = "#8a6a2a" strokeWidth = "1.8" > <circle cx="12" cy = "8" r = "4" /> <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /> </svg>
+        < input
 className = "search-input"
 value = { searchName }
 autoComplete = "off"
-placeholder = "Your name"
+placeholder = "Tu nombre"
 onChange = { e => {
   const val = e.target.value;
   setSearchName(val);
@@ -1091,9 +1099,9 @@ onBlur = { () => setTimeout(() => setShowSuggestions(false), 150) }
     <div style = {
       {
         position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 99,
-          background: 'rgba(8,20,60,0.97)', border: '1px solid rgba(120,180,255,.3)',
-            borderRadius: 12, overflow: 'hidden', marginTop: 4,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          background: 'rgba(255,252,247,0.99)', border: '1px solid rgba(160,130,80,.25)',
+            borderRadius: 14, overflow: 'hidden', marginTop: 4,
+              boxShadow: '0 8px 32px rgba(100,80,40,.18)',
         }
   }>
   {
@@ -1108,33 +1116,49 @@ onBlur = { () => setTimeout(() => setShowSuggestions(false), 150) }
   }
 }
 style = {{
-  padding: '12px 16px', cursor: 'pointer', fontSize: 13,
-    color: '#e4f0ff', fontFamily: 'Montserrat, sans-serif',
-      borderBottom: i < suggestions.length - 1 ? '1px solid rgba(120,180,255,.1)' : 'none',
+  padding: '13px 18px', cursor: 'pointer', fontSize: 13,
+    color: '#3a2e22', fontFamily: 'Montserrat, sans-serif',
+      borderBottom: i < suggestions.length - 1 ? '1px solid rgba(160,130,80,.12)' : 'none',
         background: 'transparent', transition: 'background .15s',
               }}
-onMouseEnter = { e => (e.currentTarget.style.background = 'rgba(50,100,200,.3)') }
+onMouseEnter = { e => (e.currentTarget.style.background = 'rgba(160,130,60,.08)') }
 onMouseLeave = { e => (e.currentTarget.style.background = 'transparent') }
             >
-  <span style = { { color: '#d4af37', fontWeight: 600 } }> { g.name } < /span>
+  <span style = { { color: '#8a6a2a', fontWeight: 600 } }> { g.name } < /span>
 {
-  g.surname && <span style = { { color: 'rgba(180,210,255,.7)', marginLeft: 6 } }> { g.surname } < /span> }
+  g.surname && <span style = { { color: 'rgba(100,80,50,.6)', marginLeft: 6 } }> { g.surname } < /span> }
     < /div>
           ))
 }
 </div>
       )}
 </div>
-  < div style = {{ marginBottom: 24 }}>
-    <label className="field-label" > Last name < /label>
-      < input className = "search-input" value = { searchSurname } onChange = { e => setSearchSurname(e.target.value) } placeholder = "Your last name" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
-        </div>
-        < button className = "btn-primary" onClick = { handleSearch } disabled = { searching } >
-          { searching? 'Searching...': 'Find my table' }
-          < /button>
+  < /div>
+
+{/* Input APELLIDO con icono */ }
+<div style = { { marginBottom: 28, position: 'relative' } }>
+  <label className="field-label" > APELLIDO < /label>
+    < div style = {{ position: 'relative' }}>
+      <svg style={ { position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', opacity: .4, pointerEvents: 'none' } } width = "16" height = "16" viewBox = "0 0 24 24" fill = "none" stroke = "#8a6a2a" strokeWidth = "1.8" > <circle cx="12" cy = "8" r = "4" /> <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /> </svg>
+        < input className = "search-input" value = { searchSurname } onChange = { e => setSearchSurname(e.target.value) } placeholder = "Tu apellido" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
+          </div>
           < /div>
-          < p style = {{ textAlign: 'center', marginTop: 20, color: 'rgba(100,130,200,.3)', fontSize: 10, letterSpacing: '.15em' }}>✦</p>
-            < /div>
-            < /div>
+
+{/* Botón */ }
+<button className = "btn-primary" onClick = { handleSearch } disabled = { searching }
+style = {{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+  <svg width="16" height = "16" viewBox = "0 0 24 24" fill = "none" stroke = "currentColor" strokeWidth = "2" > <rect x="3" y = "4" width = "18" height = "16" rx = "2" /> <path d="M8 2v4M16 2v4M3 10h18" /> </svg>
+{ searching ? 'Buscando...' : 'ENCONTRAR MI MESA' }
+{
+  !searching && <svg width="14" height = "14" viewBox = "0 0 24 24" fill = "none" stroke = "currentColor" strokeWidth = "2.5" > <path d="M5 12h14M13 6l6 6-6 6" /> </svg> }
+    < /button>
+
+    < /div>
+    < div style = {{ textAlign: 'center', marginTop: 24, color: 'rgba(140,110,60,.5)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase' }
+}>
+    ✦ Experiencias que perduran ✦
+< /div>
+  < /div>
+  < /div>
   );
 }
