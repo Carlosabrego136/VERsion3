@@ -674,10 +674,10 @@ function RevealScreen({ guest, table, eventName, onContinue }: RevealScreenProps
   welcome
   < /p>
 
-{/* CTA button — always rendered with fixed height to prevent layout jump */}
-<div className="reveal-buttons" style={{ width: '100%', maxWidth: 280, visibility: showButton ? 'visible' : 'hidden' }}>
+{/* CTA button — always rendered with fixed height to prevent layout jump */ }
+<div className="reveal-buttons" style = {{ width: '100%', maxWidth: 280, visibility: showButton ? 'visible' : 'hidden' }}>
   <button
-        onClick={onContinue}
+        onClick={ onContinue }
 style = {{
   width: '100%',
     background: 'linear-gradient(135deg, rgba(180,150,55,.25), rgba(212,175,55,.15))',
@@ -705,8 +705,8 @@ onMouseLeave = { e => {
       >
   View my seat on the map ✦
 </button>
-</div>
-</div>
+  < /div>
+  < /div>
   );
 }
 
@@ -718,6 +718,8 @@ export default function GuestPage({ eventId }: GuestPageProps) {
   const [markers, setMarkers] = useState<LocationMarker[]>([]);
   const [searchName, setSearchName] = useState('');
   const [searchSurname, setSearchSurname] = useState('');
+  const [suggestions, setSuggestions] = useState<GuestData[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [foundGuest, setFoundGuest] = useState<GuestData | null>(null);
   const [foundTable, setFoundTable] = useState<TableData | null>(null);
   // Nueva fase: 'reveal' entre búsqueda y mapa
@@ -732,7 +734,7 @@ export default function GuestPage({ eventId }: GuestPageProps) {
     const tryFullscreen = () => {
       const el = document.documentElement;
       if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
+        el.requestFullscreen().catch(() => { });
       } else if ((el as any).webkitRequestFullscreen) {
         (el as any).webkitRequestFullscreen();
       }
@@ -931,13 +933,13 @@ draggable = { false}
 {
   foundTable && (
     <div style={
-      {
-        position: 'absolute',
-          left: `${foundTable.position.x}%`,
-            top: `${foundTable.position.y}%`,
-              transform: 'translate(-50%, -100%)',
-                zIndex: 10,
-                  pointerEvents: 'none',
+    {
+      position: 'absolute',
+        left: `${foundTable.position.x}%`,
+          top: `${foundTable.position.y}%`,
+            transform: 'translate(-50%, -100%)',
+              zIndex: 10,
+                pointerEvents: 'none',
               }
   }>
     {/* Radial glow behind pin */ }
@@ -1057,20 +1059,82 @@ return (
   }>
     <div className="ornament" style = {{ marginBottom: 24 }
 }> FIND YOUR SEAT < /div>
-  < div style = {{ marginBottom: 14 }}>
+  < div style = {{ marginBottom: 14, position: 'relative' }}>
     <label className="field-label" > Name < /label>
-      < input className = "search-input" value = { searchName } onChange = { e => setSearchName(e.target.value) } placeholder = "Your name" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
+      < input
+className = "search-input"
+value = { searchName }
+autoComplete = "off"
+placeholder = "Your name"
+onChange = { e => {
+  const val = e.target.value;
+  setSearchName(val);
+  if (val.trim().length >= 1) {
+    const filtered = guests.filter(g =>
+      g.name.toLowerCase().startsWith(val.trim().toLowerCase())
+    ).slice(0, 6);
+    setSuggestions(filtered);
+    setShowSuggestions(filtered.length > 0);
+  } else {
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
+}}
+onKeyDown = { e => {
+  if (e.key === 'Enter') { setShowSuggestions(false); handleSearch(); }
+  if (e.key === 'Escape') setShowSuggestions(false);
+}}
+onBlur = { () => setTimeout(() => setShowSuggestions(false), 150) }
+/>
+{
+  showSuggestions && (
+    <div style = {
+      {
+        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 99,
+          background: 'rgba(8,20,60,0.97)', border: '1px solid rgba(120,180,255,.3)',
+            borderRadius: 12, overflow: 'hidden', marginTop: 4,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        }
+  }>
+  {
+    suggestions.map((g, i) => (
+      <div
+              key = { g.id }
+              onMouseDown = { () => {
+      setSearchName(g.name);
+    setSearchSurname(g.surname);
+    setSuggestions([]);
+                setShowSuggestions(false);
+  }
+}
+style = {{
+  padding: '12px 16px', cursor: 'pointer', fontSize: 13,
+    color: '#e4f0ff', fontFamily: 'Montserrat, sans-serif',
+      borderBottom: i < suggestions.length - 1 ? '1px solid rgba(120,180,255,.1)' : 'none',
+        background: 'transparent', transition: 'background .15s',
+              }}
+onMouseEnter = { e => (e.currentTarget.style.background = 'rgba(50,100,200,.3)') }
+onMouseLeave = { e => (e.currentTarget.style.background = 'transparent') }
+            >
+  <span style = { { color: '#d4af37', fontWeight: 600 } }> { g.name } < /span>
+{
+  g.surname && <span style = { { color: 'rgba(180,210,255,.7)', marginLeft: 6 } }> { g.surname } < /span> }
+    < /div>
+          ))
+}
+</div>
+      )}
+</div>
+  < div style = {{ marginBottom: 24 }}>
+    <label className="field-label" > Last name < /label>
+      < input className = "search-input" value = { searchSurname } onChange = { e => setSearchSurname(e.target.value) } placeholder = "Your last name" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
         </div>
-        < div style = {{ marginBottom: 24 }}>
-          <label className="field-label" > Last name < /label>
-            < input className = "search-input" value = { searchSurname } onChange = { e => setSearchSurname(e.target.value) } placeholder = "Your last name" onKeyDown = { e => e.key === 'Enter' && handleSearch() } />
-              </div>
-              < button className = "btn-primary" onClick = { handleSearch } disabled = { searching } >
-                { searching? 'Searching...': 'Find my table' }
-                < /button>
-                < /div>
-                < p style = {{ textAlign: 'center', marginTop: 20, color: 'rgba(100,130,200,.3)', fontSize: 10, letterSpacing: '.15em' }}>✦</p>
-                  < /div>
-                  < /div>
+        < button className = "btn-primary" onClick = { handleSearch } disabled = { searching } >
+          { searching? 'Searching...': 'Find my table' }
+          < /button>
+          < /div>
+          < p style = {{ textAlign: 'center', marginTop: 20, color: 'rgba(100,130,200,.3)', fontSize: 10, letterSpacing: '.15em' }}>✦</p>
+            < /div>
+            < /div>
   );
 }
