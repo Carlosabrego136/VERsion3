@@ -63,6 +63,8 @@ export default function CoverEditor({
     italic: false,
   });
   const [previewRotation, setPreviewRotation] = useState(0);
+  // Posición local del QR durante el drag — se sincroniza al soltar
+  const [qrLocalPos, setQrLocalPos] = useState<{ x: number; y: number } | null>(null);
 
   // Drag state
   const draggingRef = useRef<{ id: string | 'qr'; offsetX: number; offsetY: number } | null>(null);
@@ -117,7 +119,7 @@ export default function CoverEditor({
     const { id } = draggingRef.current;
 
     if (id === 'qr') {
-      onQrPositionChange({ x, y });
+      setQrLocalPos({ x, y });
     } else {
       setElements(prev =>
         prev.map(el => el.id === id ? { ...el, position: { x, y } } : el)
@@ -129,8 +131,14 @@ export default function CoverEditor({
     if (draggingRef.current) {
       const id = draggingRef.current.id;
 
-      if (hasDraggedRef.current && id !== 'qr') {
-        // Solo guardar si realmente se arrastró
+      if (hasDraggedRef.current && id === 'qr') {
+        // QR: guardar posición final una sola vez
+        setQrLocalPos(prev => {
+          if (prev) onQrPositionChange(prev);
+          return null;
+        });
+      } else if (hasDraggedRef.current && id !== 'qr') {
+        // Elemento texto/imagen: guardar posición
         setElements(prev => {
           const el = prev.find(el => el.id === id);
           if (el) saveCoverElement(el).catch(err => console.error('saveCoverElement drag error:', err));
@@ -324,7 +332,7 @@ onPointerDown = { interactive?(e) => onPointerDownElement(e, el.id) : undefined 
 
 {/* QR */ }
 <div
-        style={ { position: 'absolute', left: qrPosition.x, top: qrPosition.y, cursor: interactive ? 'grab' : 'default', zIndex: 50 } }
+        style={ { position: 'absolute', left: (interactive && qrLocalPos ? qrLocalPos.x : qrPosition.x), top: (interactive && qrLocalPos ? qrLocalPos.y : qrPosition.y), cursor: interactive ? 'grab' : 'default', zIndex: 50 } }
 onPointerDown = { interactive?(e) => onPointerDownElement(e, 'qr'): undefined }
   >
   <div style={ { background: 'white', padding: 8, borderRadius: 10, width: qrSize, height: qrSize } }>
@@ -332,106 +340,7 @@ onPointerDown = { interactive?(e) => onPointerDownElement(e, 'qr'): undefined }
       </div>
       < /div>
 
-{/* Panel de edición del elemento seleccionado — solo en editor */ }
-{
-  interactive && selected && selected.elementType === 'text' && (
-    <div
-          style={
-    {
-      position: 'absolute',
-        bottom: 10,
-          left: '50%',
-            transform: 'translateX(-50%)',
-              background: 'rgba(255,255,255,0.97)',
-                borderRadius: 10,
-                  padding: '8px 12px',
-                    display: 'flex',
-                      gap: 8,
-                        alignItems: 'center',
-                          zIndex: 200,
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-                              flexWrap: 'wrap',
-                                maxWidth: 340,
-          }
-  }
-  onPointerDown = { e => e.stopPropagation() }
-    >
-    {/* Tamaño de fuente */ }
-    < label style = {{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#374151' }
-}>
-  Tam:
-<input
-              type="number"
-min = { 8}
-max = { 120}
-value = { Number(selected.style.fontSize) || 24}
-onChange = { e => updateSelectedStyle('fontSize', + e.target.value)}
-style = {{ width: 52, padding: '2px 6px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12 }}
-/>
-  < /label>
-{/* Color */ }
-<label style={ { display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#374151' } }>
-  Color:
-<input
-              type="color"
-value = { String(selected.style.color || '#ffffff') }
-onChange = { e => updateSelectedStyle('color', e.target.value) }
-style = {{ width: 28, height: 28, border: 'none', cursor: 'pointer', borderRadius: 4 }}
-/>
-  < /label>
-{/* Fuente */ }
-<select
-            value={ String(selected.style.fontFamily || 'serif') }
-onChange = { e => updateSelectedStyle('fontFamily', e.target.value) }
-style = {{ padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 11 }}
-          >
-{
-  FONT_OPTIONS.map(f => (
-    <option key= { f.value } value = { f.value } style = {{ fontFamily: f.value }} > { f.label } < /option>
-            ))}
-</select>
-{/* Bold */ }
-<button
-            onClick={ () => updateSelectedStyle('bold', selected.style.bold === 'true' ? 'false' : 'true') }
-style = {{
-  padding: '3px 8px', borderRadius: 6, fontSize: 13, fontWeight: 'bold', border: '1px solid #d1d5db', cursor: 'pointer',
-    background: selected.style.bold === 'true' ? '#f59e0b' : '#f3f4f6',
-      color: selected.style.bold === 'true' ? 'white' : '#374151',
-            }}
-          > B < /button>
-{/* Italic */ }
-<button
-            onClick={ () => updateSelectedStyle('italic', selected.style.italic === 'true' ? 'false' : 'true') }
-style = {{
-  padding: '3px 8px', borderRadius: 6, fontSize: 13, fontStyle: 'italic', border: '1px solid #d1d5db', cursor: 'pointer',
-    background: selected.style.italic === 'true' ? '#f59e0b' : '#f3f4f6',
-      color: selected.style.italic === 'true' ? 'white' : '#374151',
-            }}
-          > I < /button>
-  < button
-onClick = {() => removeElement(selected.id)}
-style = {{ padding: '3px 10px', background: '#ef4444', color: 'white', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
-          > Eliminar < /button>
-  < button
-onClick = {() => setSelectedElement(null)}
-style = {{ padding: '3px 10px', background: '#e5e7eb', color: '#374151', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}
-          > Cerrar < /button>
-  < /div>
-      )}
-
-{/* Panel para elementos que no son texto (imagen) */ }
-{
-  interactive && selected && selected.elementType !== 'text' && (
-    <div
-          style={ { position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.95)', borderRadius: 8, padding: '5px 10px', display: 'flex', gap: 8, zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' } }
-  onPointerDown = { e => e.stopPropagation() }
-    >
-    <button onClick={ () => removeElement(selected.id) } style = {{ padding: '3px 10px', background: '#ef4444', color: 'white', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }
-}> Eliminar < /button>
-  < button onClick = {() => setSelectedElement(null)} style = {{ padding: '3px 10px', background: '#e5e7eb', color: '#374151', borderRadius: 6, fontSize: 12, border: 'none', cursor: 'pointer' }}> Cerrar < /button>
-    < /div>
-      )}
-</div>
+      < /div>
   );
 
 return (
@@ -502,8 +411,64 @@ className = "px-2 py-2 border border-gray-200 rounded-lg text-sm"
   {/* EDITOR — full size 360×640, draggable */ }
   < div className = "flex-shrink-0" >
     <p className="text-xs text-gray-500 mb-1.5 font-semibold uppercase tracking-wide" > Editor — arrastra los elementos < /p>
-      < div
-ref = { editorRef }
+
+{/* Panel de edición — fuera del canvas, no tapa el texto */ }
+{
+  selected && selected.elementType === 'text' && (
+    <div className="mb-2 bg-white border border-amber-300 rounded-xl px-3 py-2 flex flex-wrap gap-2 items-center shadow-sm" style = {{ maxWidth: CW }
+}>
+  <span className="text-xs font-semibold text-amber-600 mr-1" >✏️ Editando texto < /span>
+    < label className = "flex items-center gap-1 text-xs text-gray-600" >
+      Tam:
+<input
+                  type="number" min = { 8} max = { 120}
+value = { Number(selected.style.fontSize) || 24}
+onChange = { e => updateSelectedStyle('fontSize', + e.target.value)}
+className = "w-14 px-1.5 py-1 border border-gray-200 rounded-lg text-xs"
+  />
+  </label>
+  < label className = "flex items-center gap-1 text-xs text-gray-600" >
+    Color:
+<input
+                  type="color"
+value = { String(selected.style.color || '#ffffff') }
+onChange = { e => updateSelectedStyle('color', e.target.value) }
+className = "w-7 h-7 border-0 cursor-pointer rounded"
+  />
+  </label>
+  < select
+value = { String(selected.style.fontFamily || 'serif') }
+onChange = { e => updateSelectedStyle('fontFamily', e.target.value) }
+className = "px-1.5 py-1 border border-gray-200 rounded-lg text-xs"
+  >
+{
+  FONT_OPTIONS.map(f => (
+    <option key= { f.value } value = { f.value } style = {{ fontFamily: f.value }} > { f.label } < /option>
+                ))}
+</select>
+  < button
+onClick = {() => updateSelectedStyle('bold', selected.style.bold === 'true' ? 'false' : 'true')}
+className = {`px-2 py-1 rounded-lg text-xs font-bold border ${selected.style.bold === 'true' ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}
+              > B < /button>
+  < button
+onClick = {() => updateSelectedStyle('italic', selected.style.italic === 'true' ? 'false' : 'true')}
+className = {`px-2 py-1 rounded-lg text-xs italic border ${selected.style.italic === 'true' ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-100 text-gray-700 border-gray-200'}`}
+              > I < /button>
+  < button onClick = {() => removeElement(selected.id)} className = "px-2 py-1 bg-red-500 text-white rounded-lg text-xs border-none cursor-pointer" > Eliminar < /button>
+    < button onClick = {() => setSelectedElement(null)} className = "px-2 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs border-none cursor-pointer" >✕</button>
+      < /div>
+          )}
+{
+  selected && selected.elementType !== 'text' && (
+    <div className="mb-2 bg-white border border-gray-200 rounded-xl px-3 py-2 flex gap-2 items-center shadow-sm" style = {{ maxWidth: CW }
+}>
+  <span className="text-xs font-semibold text-gray-500 mr-1" >🖼️ Imagen seleccionada < /span>
+    < button onClick = {() => removeElement(selected.id)} className = "px-2 py-1 bg-red-500 text-white rounded-lg text-xs border-none cursor-pointer" > Eliminar < /button>
+      < button onClick = {() => setSelectedElement(null)} className = "px-2 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs border-none cursor-pointer" >✕</button>
+        < /div>
+          )}
+<div
+            ref={ editorRef }
 style = {{
   width: CW,
     height: CH,
