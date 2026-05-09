@@ -86,19 +86,32 @@ export default function CoverEditor({
   const onPointerDownElement = useCallback((e: React.PointerEvent, id: string | 'qr') => {
     e.preventDefault();
     e.stopPropagation();
+    if (!editorRef.current) return;
     const scale = getEditorScale();
     editorScaleRef.current = scale;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Siempre calcular desde editorRef (canvas completo), no desde el elemento
+    const editorRect = editorRef.current.getBoundingClientRect();
+    const pointerX = (e.clientX - editorRect.left) / scale;
+    const pointerY = (e.clientY - editorRect.top) / scale;
+    // El offset es la diferencia entre el puntero y la posición actual del elemento
+    let elemX = 0;
+    let elemY = 0;
+    if (id === 'qr') {
+      elemX = qrPosition.x;
+      elemY = qrPosition.y;
+    } else {
+      const el = elements.find(el => el.id === id);
+      if (el) { elemX = el.position.x; elemY = el.position.y; }
+    }
     draggingRef.current = {
       id,
-      offsetX: (e.clientX - rect.left) / scale,
-      offsetY: (e.clientY - rect.top) / scale,
+      offsetX: pointerX - elemX,
+      offsetY: pointerY - elemY,
     };
-    // Guardar posición inicial para detectar si es click o drag
     dragStartPosRef.current = { x: e.clientX, y: e.clientY };
     hasDraggedRef.current = false;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [getEditorScale]);
+  }, [getEditorScale, qrPosition, elements]);
 
   const onPointerMoveEditor = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current || !editorRef.current) return;
